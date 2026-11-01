@@ -1,0 +1,7 @@
+{
+  "name": "food",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Family meal planner",
+  "scripts": { "build": "node build.js" }
+}

@@ -1,0 +1,18 @@
+# Food settings. Lines starting with # are notes and are ignored.
+# After you change this file on GitHub, the site rebuilds by itself in about a minute.
+
+# Theme nights. Format:  theme: day = Cuisine
+# Days: mon tue wed thu fri sat sun. Delete a line to remove a theme.
+theme: tue = Mexican
+theme: thu = Italian
+
+# Groups for the "By cuisine" buttons. Format:  genre: Button name = cuisine, cuisine
+# The cuisine names must match the "cuisine:" line in your recipe files.
+genre: Mexican = Mexican
+genre: Italian = Italian
+genre: Asian = Thai, Chinese
+genre: Indian = Indian
+genre: American = American
+
+# Pantry staples. These are left off your grocery lists. Separate with commas.
+pantry: salt, pepper, sugar, soy sauce, flour, cumin, coriander, curry powder, chili powder, onion powder, garlic powder, bay leaves, paprika, olive oil

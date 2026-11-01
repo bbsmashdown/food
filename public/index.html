@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100F0F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Food">
+<title>Food</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,300;0,400;0,500;0,600;1,400&family=iA+Writer+Mono+S:ital,wght@0,400;1,400&display=swap">
+<link rel="stylesheet" href="/app.css">
+<script>
+  // set the theme before the page paints so it does not flash
+  (function () {
+    var t = 'dark', m = document.cookie.match(/(?:^|; )sw-theme=(light|dark)/);
+    if (m) t = m[1]; else { try { t = localStorage.getItem('sw-theme') || 'dark'; } catch (e) {} }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <div class="crumb"><a id="crumb-home" href="/">Smashdown World</a> <i>/</i> food</div>
+      <h1 id="h-title">Plan the week</h1>
+      <div class="wknav">
+        <button class="wk-btn" data-a="wk" data-d="-1" aria-label="Previous week">‹</button>
+        <span id="wk-label"></span>
+        <button class="wk-btn" data-a="wk" data-d="1" aria-label="Next week">›</button>
+        <button class="link-btn wk-today" id="wk-today" data-a="wk" data-d="0" hidden>This week</button>
+        <span class="sync" id="sync" data-s="local">Loading…</span>
+      </div>
+    </div>
+    <div class="top-r">
+      <label class="theme-toggle" title="Toggle light/dark"><input type="checkbox" id="themeToggle" aria-label="Light theme">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb">
+          <span class="icon-moon"><svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 1 A3.5 3.5 0 1 0 8 4.5 A2.4 2.4 0 1 1 4.5 1Z" fill="currentColor" opacity="0.8"/></svg></span>
+          <span class="icon-sun"><svg width="9" height="9" viewBox="0 0 9 9" fill="none"><circle cx="4.5" cy="4.5" r="2" fill="currentColor"/><path d="M4.5 .5v1.3M4.5 7.2v1.3M.5 4.5h1.3M7.2 4.5h1.3M1.6 1.6l.9.9M6.5 6.5l.9.9M6.5 2.5l.9-.9M1.6 7.4l.9-.9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></span>
+        </span>
+      </label>
+    </div>
+  </header>
+  <main id="main"></main>
+  <footer class="foot" id="foot"></footer>
+</div>
+<nav class="tabs" aria-label="Sections"><div class="brand">Food</div><div class="tabs-in" id="tabs"></div></nav>
+<div class="sheet" id="sheet" hidden></div>
+<div class="gate" id="gate" hidden>
+  <form class="gate-card" id="gate-form">
+    <h2>Family passcode</h2>
+    <p>Enter it once on this phone or computer to make changes. Anyone with the link can view.</p>
+    <input id="gate-in" type="password" autocomplete="current-password" aria-label="Family passcode">
+    <p class="gate-msg" id="gate-msg" role="alert"></p>
+    <div class="gate-btns"><button type="button" class="link-btn" id="gate-cancel">Cancel</button><button class="btn" type="submit">Unlock</button></div>
+  </form>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+<script src="/app.js"></script>
+</body>
+</html>
