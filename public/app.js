@@ -163,6 +163,7 @@
   }
   var MUT = ['pick', 'change', 'keep', 'scale', 'check', 'meal', 'xscale', 'xrm'];
 
+  var SHORTCUT = 'Add Groceries', APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
   var view = 'plan', sheet = null, rFilter = 'All', rMeal = 'all', rTag = '', rQuery = '';
   var shop = { mode: 'week', day: 0, rid: null, scale: 1 }, anyChecked = {};
   var TITLES = { plan: 'Plan the week', week: 'This week', shop: 'Groceries', recipes: 'Recipes', settings: 'Settings' };
@@ -481,7 +482,7 @@
       h += '</ul></section>';
     });
     h += '</div>';
-    h += '<div class="row-tools" style="margin-top:18px"><button class="btn" data-a="copylist">Copy list</button>' + (navigator.share ? '<button class="link-btn" data-a="sharelist">Share</button>' : '') + '</div>';
+    h += '<div class="row-tools" style="margin-top:18px">' + (APPLE ? '<button class="btn" data-a="reminders">Send to Reminders</button>' : '') + '<button class="' + (APPLE ? 'link-btn' : 'btn') + '" data-a="copylist">Copy list</button>' + (navigator.share ? '<button class="link-btn" data-a="sharelist">Share</button>' : '') + '</div>';
     h += '<details class="pantry"><summary>' + data.hidden.length + ' pantry staples hidden</summary><p>' + data.hidden.join(', ') + '. Change this list in the settings.txt file.</p></details>';
     return h;
   }
@@ -570,6 +571,12 @@
     else if (a === 'sscale') { sheet.scale = +b.dataset.s; renderSheet(); return; }
     else if (a === 'smode') { shop.mode = b.dataset.m; }
     else if (a === 'check') { var tgt = local ? anyChecked : checked; tgt[b.dataset.k] = !tgt[b.dataset.k]; }
+    else if (a === 'reminders') {
+      var rt = shopText();
+      if (!rt) { toast('Nothing left to send. Everything is checked off.'); return; }
+      location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(SHORTCUT) + '&input=text&text=' + encodeURIComponent(rt);
+      return;
+    }
     else if (a === 'copylist' || a === 'sharelist') {
       var txt = shopText(), n = txt ? txt.split('\n').length : 0;
       if (!n) { toast('Nothing left to copy. Everything is checked off.'); return; }
