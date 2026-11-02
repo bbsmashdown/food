@@ -570,6 +570,7 @@
     if (!READY) return;
     computeMade();
     document.getElementById('h-title').textContent = TITLES[view];
+    var who = document.getElementById('who'); who.hidden = !HOUSEHOLD; document.getElementById('who-name').textContent = HOUSEHOLD;
     document.getElementById('wk-label').textContent = weekLabel();
     document.getElementById('wk-today').hidden = weekKey === defaultWeekKey();
     var m = document.getElementById('main');
