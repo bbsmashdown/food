@@ -6,8 +6,11 @@
 const fs = require('fs');
 const path = require('path');
 
-// dinner, breakfast, lunch and side can be planned. The rest only appear in the Recipes tab.
-const MEALS = ['dinner', 'breakfast', 'lunch', 'side', 'dessert', 'baking', 'drink', 'other'];
+// dinner, breakfast, lunch and side can be planned. The rest only appear in the Recipes tab and can be added as Extras.
+const MEALS = ['dinner', 'breakfast', 'lunch', 'side', 'dessert', 'drink', 'sauce'];
+// Old values that were removed. They still build (mapped to the new value) and are listed as notes.
+const LEGACY_MEALS = { baking: 'dessert', other: 'dessert' };
+const notes = [];
 const AISLES = ['produce', 'meat', 'dairy', 'dry', 'bread'];
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const problems = [];
@@ -50,10 +53,11 @@ function parseRecipe(file) {
   const id = path.basename(file, '.md');
   const raw = fs.readFileSync(path.join('recipes', file), 'utf8');
   const { data, body, bodyStart } = parseFrontmatter(raw);
-  const need = ['title', 'cuisine', 'prep', 'total', 'serves'];
+  const need = ['title', 'meal', 'prep', 'total', 'serves'];
   for (const k of need) if (!data[k]) fail(file, 0, `missing "${k}:" at the top of the file`);
-  const meal = (data.meal || 'dinner').toLowerCase();
-  if (!MEALS.includes(meal)) fail(file, 0, `"meal:" must be one of ${MEALS.join(', ')} (found "${data.meal}")`);
+  let meal = (data.meal || '').toLowerCase();
+  if (LEGACY_MEALS[meal]) { notes.push(`${file}: "meal: ${meal}" is no longer used, treated as "${LEGACY_MEALS[meal]}". Please change it.`); meal = LEGACY_MEALS[meal]; }
+  else if (data.meal && !MEALS.includes(meal)) fail(file, 0, `"meal:" must be one of ${MEALS.join(', ')} (found "${data.meal}")`);
   for (const k of ['prep', 'total', 'serves']) if (data[k] && !(Number(data[k]) > 0)) fail(file, 0, `"${k}:" must be a number (found "${data[k]}")`);
 
   const ing = [], steps = [];
@@ -81,12 +85,19 @@ function parseRecipe(file) {
   if (!ing.length) fail(file, 0, 'no ingredients found under "## Ingredients"');
   if (!steps.length) fail(file, 0, 'no steps found under "## Steps"');
 
+  // Tags keep the capitalization you typed; two spellings that differ only by case count as one (first one wins).
+  const tags = [], seenTag = {};
+  const addTag = t => { t = t.trim(); const k = t.toLowerCase(); if (t && !seenTag[k]) { seenTag[k] = 1; tags.push(t); } };
+  (data.tags || '').split(',').forEach(addTag);
+  // An old "cuisine:" line is no longer a field. If a file still has one, it becomes a tag so nothing is lost.
+  if (data.cuisine && !seenTag[data.cuisine.trim().toLowerCase()]) { addTag(data.cuisine); notes.push(`${file}: "cuisine: ${data.cuisine}" is no longer used, converted to the tag "${data.cuisine.trim()}". You can move it to the tags line.`); }
+
   const srcType = (data.source_type || 'none').toLowerCase();
   return {
-    id, meal, t: data.title, c: data.cuisine,
+    id, meal, t: data.title,
     prep: Number(data.prep), total: Number(data.total), serves: Number(data.serves),
     lastMade: /^\d{4}-\d{2}-\d{2}$/.test(data.last_made || '') ? data.last_made : null,
-    tags: (data.tags || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean),
+    tags,
     src: { type: srcType, label: data.source_label || '', url: data.source_url || '' },
     ing, steps
   };
@@ -132,6 +143,7 @@ if (problems.length) {
   process.exit(1);
 }
 
+if (notes.length) console.log('\nNotes (the build still worked, nothing to do right away):\n' + notes.slice(0, 5).map(n => '  ' + n).join('\n') + (notes.length > 5 ? `\n  ...and ${notes.length - 5} more like these.` : '') + '\n');
 fs.rmSync('dist', { recursive: true, force: true });
 fs.mkdirSync('dist', { recursive: true });
 copyDir('public', 'dist');

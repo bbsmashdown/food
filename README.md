@@ -8,7 +8,7 @@ It lives at `food.yourdomain.com`. Anyone with the link can **view**. Only peopl
 | Path | What it is |
 |---|---|
 | `recipes/` | One `.md` file per recipe. The 24 here are samples. Delete them when you add your own. |
-| `settings.txt` | Theme nights, cuisine groups and pantry staples. Plain text. |
+| `settings.txt` | Theme nights, style groups and pantry staples. Plain text. |
 | `attachments/` | Photos or PDFs of original recipes. Link to them from a recipe file. |
 | `public/` | The app itself. You never need to touch this. |
 | `functions/` | The small piece that saves the shared plan. You never need to touch this. |
@@ -65,14 +65,16 @@ Open the address in Safari → **Share → Add to Home Screen**. With a single p
 3. Edit files in that folder with any text editor (add recipes, change `settings.txt`).
 4. Back in GitHub Desktop you will see the changed files. Type a short summary, click **Commit to main**, then **Push origin**. Cloudflare rebuilds the site in about a minute.
 
-- **Theme nights and pantry staples per household:** open **Settings**. Each day has a theme dropdown (None, or any cuisine or tag your recipes use), and the pantry list is a box you can edit. Each household's choices are saved with its login. Until a household changes them, it uses the defaults in `settings.txt`. **Use the site defaults** switches back.
+- **Theme nights and pantry staples per household:** open **Settings**. Each day has a theme dropdown (None, or any tag your recipes use), and the pantry list is a box you can edit. Each household's choices are saved with its login. Until a household changes them, it uses the defaults in `settings.txt`. **Use the site defaults** switches back.
 
 ## Adding recipes
 
 Send me photos, links or PDFs and I will turn them into recipe files. To write one yourself, copy `templates/recipe-template.md` into the `recipes` folder, rename it (lowercase, dashes, ending in `.md`), and fill it in. The template explains every line. It is not published; only files in `recipes/` are. If a recipe file has a mistake, the build fails and the message says which file and line; the old site stays up.
 
-- **Meals:** dinner, breakfast, lunch and side can go on the weekly plan. dessert, baking, drink and other show in the Recipes tab and can be added as **Extras** on the Plan tab.
-- **Cuisine and tags:** `cuisine:` is one value (Mexican, Italian...). `tags:` is an optional comma-separated list (soup, barbecue, vegetarian). Tags become filter buttons on the Recipes tab. To get a "By cuisine" button in the planner, add a `genre:` line to `settings.txt`; it matches either a cuisine or a tag.
+- **Meals:** dinner, breakfast, lunch and side can go on the weekly plan. dessert, drink and sauce show in the Recipes tab and can be added as **Extras** on the Plan tab.
+- **Tags:** `tags:` is an optional comma-separated list (Italian, pasta, soup, baked goods). Tags are the only way recipes are grouped: they become the filter buttons on the Recipes tab (the 10 most used, plus a **More tags** button) and are what theme nights use. Capitalize proper names (Italian, Mexican) and keep the rest lowercase; capitals are ignored when matching. To get a "By style" button in the planner, add a `genre:` line to `settings.txt`; it matches tags only.
+- **Older recipe files:** a leftover `cuisine:` line is turned into a tag when the site builds, and `meal: baking` or `meal: other` is treated as `dessert`. The build prints a note for each so you can tidy them up later; nothing breaks.
+- **Required lines:** title, meal, prep, total, serves. Everything else is optional.
 - **Aisles:** produce, meat, dairy, dry, bread.
 - **Original source:** upload the photo or PDF into `attachments/`, then use `source_type: photo`, `source_label: Grandma's card`, `source_url: /attachments/card.jpg`. Use `web` or `pdf` the same way.
 - **Last made:** optional `last_made: 2026-10-20` helps the app suggest things you have not had in a while.

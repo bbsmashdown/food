@@ -1,7 +1,6 @@
 ---
 title: Recipe Name Here
 meal: dinner
-cuisine: American
 tags: 
 prep: 15
 total: 45
@@ -20,15 +19,19 @@ ending in .md, for example chicken-soup.md), fill it in, then delete this commen
 
 TOP SECTION (between the two --- lines). One "name: value" per line.
   title        Required. The name shown in the app.
-  meal         dinner, breakfast, lunch, side, dessert, baking, drink or other.
+  meal         Required. dinner, breakfast, lunch, side, dessert, drink or sauce.
                Only dinner, breakfast, lunch and side can go on the weekly plan.
                The rest appear in the Recipes tab and can be added as Extras.
-  cuisine      Required. One word or two, for example Mexican, Italian, Thai, American.
-               Should match a name in settings.txt if you want it under a "By cuisine" button.
-  tags         Optional. Comma-separated, for example: soup, vegetarian, barbecue.
+               If a recipe could be dessert or baking, use dessert.
+  tags         Optional. Comma-separated, for example: Mexican, tacos, soup, baked goods.
+               Tags are how you filter recipes and how theme nights work. Use them for
+               cuisine or region (Mexican, Italian, Tunisian), dish type (pasta, soup, bbq,
+               baked goods, cookies), diet (vegetarian) or anything else you want to filter by.
+               Capitalize proper names (Italian) and lowercase the rest (soup).
                Tags show up as filter buttons on the Recipes tab.
   prep         Required. Minutes of hands-on prep. A number only.
   total        Required. Minutes from start to table (prep + cooking). A number only.
+               Overnight soaking or chilling is not counted.
   serves       Required. How many servings the recipe makes as written. A number only.
   last_made    Optional. A date like 2026-10-20, so the app can suggest things you have not made lately.
                Leave it blank if you do not know.

@@ -21,11 +21,13 @@
   function applyPrefs() { THEMES = prefs.themes || DEF_THEMES; PANTRY = prefs.pantry || DEF_PANTRY; }
   var AISLES = { produce: 'Produce', meat: 'Meat & seafood', dairy: 'Dairy & eggs', dry: 'Dry & canned', bread: 'Bread & tortillas' };
   var PLURAL = { handful: 1, can: 1, clove: 1, bunch: 1, stalk: 1, head: 1, jar: 1 };
-  var R = [], byId = {}, CUISINES = ['All'];
+  var R = [], byId = {}, TAGCOUNT = {}, TAGNAME = {}, TAGSORTED = [];
+  function tagText(r, n) { return (r.tags || []).slice(0, n || 2).join(', '); }
+  function tagBadge(r) { return (r.tags || []).length ? '<span class="tag">' + r.tags[0] + '</span>' : ''; }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function loadData(data) {
     R = data.recipes.map(function (r) {
-      r.t = esc(r.t); r.c = esc(r.c);
+      r.t = esc(r.t); r.tags = (r.tags || []).map(esc); r.tl = r.tags.map(function (t) { return t.toLowerCase(); });
       r.src = { type: r.src.type, label: esc(r.src.label), url: esc(r.src.url) };
       r.ing = r.ing.map(function (g) { return [g[0], esc(g[1]), esc(g[2]), g[3]]; });
       r.steps = r.steps.map(esc);
@@ -36,8 +38,11 @@
     var st = data.settings || {};
     DEF_THEMES = st.themes || {}; DEF_PANTRY = (st.pantry || []).map(function (x) { return String(x).toLowerCase(); }); applyPrefs();
     GENRES = st.genres && Object.keys(st.genres).length ? st.genres : {};
-    if (!Object.keys(GENRES).length) R.forEach(function (r) { GENRES[r.c] = [r.c]; });
-    CUISINES = ['All'].concat(R.map(function (r) { return r.c; }).filter(function (c, i, a) { return a.indexOf(c) === i; }));
+    TAGCOUNT = {}; TAGNAME = {};
+    R.forEach(function (r) { r.tags.forEach(function (t) { var k = t.toLowerCase(); TAGCOUNT[k] = (TAGCOUNT[k] || 0) + 1; if (!TAGNAME[k]) TAGNAME[k] = t; }); });
+    TAGSORTED = Object.keys(TAGCOUNT).sort(function (x, y) { return TAGCOUNT[y] - TAGCOUNT[x] || x.localeCompare(y); });
+    // no genre: lines in settings.txt? use the most common tags as the planner's style buttons
+    if (!Object.keys(GENRES).length) TAGSORTED.slice(0, 8).forEach(function (k) { GENRES[TAGNAME[k]] = [TAGNAME[k]]; });
   }
 
   // ---------- dates and weeks ----------
@@ -182,7 +187,7 @@
   var MUT = ['pick', 'change', 'keep', 'scale', 'check', 'meal', 'xscale', 'xrm', 'resetthemes', 'resetpantry'];
 
   var SHORTCUT = 'Add Groceries', APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
-  var view = 'plan', sheet = null, rFilter = 'All', rMeal = 'all', rTag = '', rQuery = '';
+  var view = 'plan', sheet = null, rMore = false, rMeal = 'all', rTag = '', rQuery = '';
   var shop = { mode: 'week', day: 0, rid: null, scale: 1 }, anyChecked = {};
   var TITLES = { plan: 'Plan the week', week: 'This week', shop: 'Groceries', recipes: 'Recipes', settings: 'Settings' };
   var ICONS = {
@@ -216,12 +221,12 @@
     return a;
   }
   var MEAL_KIND = { b: 'breakfast', l: 'lunch', d: 'dinner', s: 'side' };
-  function hasStyle(r, n) { n = String(n).toLowerCase(); return String(r.c).toLowerCase() === n || (r.tags || []).indexOf(n) > -1; }
+  function hasStyle(r, n) { return (r.tl || []).indexOf(String(n).trim().toLowerCase()) > -1; }
   function themeOf(i, k) { return k === 'd' ? THEMES[i] : null; }
   function sortRow(i, k) {
     if (themeOf(i, k) || S(i, k).sort !== 'cuisine') return '';
     var cur = S(i, k).cuisine || '';
-    return '<div class="chips wrap" role="group" aria-label="Cuisine">' + [''].concat(Object.keys(GENRES)).map(function (g) {
+    return '<div class="chips wrap" role="group" aria-label="Style">' + [''].concat(Object.keys(GENRES)).map(function (g) {
       return '<button class="chip" data-a="cuis" data-i="' + i + '" data-mk="' + k + '" data-g="' + g + '" aria-pressed="' + (cur === g) + '">' + (g || 'All') + '</button>';
     }).join('') + '</div>';
   }
@@ -230,7 +235,7 @@
     var cur = S(i, k).sort || 'stale';
     var opt = function (v, l) { return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>'; };
     return '<div class="sort-row"><select class="pick-sel" id="sort-' + k + '-' + i + '" data-sel="sort" data-i="' + i + '" data-mk="' + k + '" aria-label="Order">' +
-      opt('stale', 'Longest since made') + opt('random', 'Random') + opt('cuisine', 'By cuisine') + opt('all', 'Show all') + '</select>' +
+      opt('stale', 'Longest since made') + opt('random', 'Random') + opt('cuisine', 'By style') + opt('all', 'Show all') + '</select>' +
       (cur === 'random' ? '<button class="link-btn" data-a="shuffle" data-i="' + i + '" data-mk="' + k + '">Shuffle</button>' : '') + '</div>';
   }
   function allLink(i, k) {
@@ -242,7 +247,7 @@
     var p = S(i, k), t = themeOf(i, k);
     if (t) return p.all ? 'All recipes' : 'Suggested for ' + t + ' night';
     var c = p.sort || 'stale';
-    return c === 'cuisine' ? (p.cuisine || 'All cuisines') + ' · longest since made' : c === 'random' ? 'Random picks' : c === 'all' ? 'All recipes' : 'Longest since made';
+    return c === 'cuisine' ? (p.cuisine || 'All styles') + ' · longest since made' : c === 'random' ? 'Random picks' : c === 'all' ? 'All recipes' : 'Longest since made';
   }
   function suggestions(i, k) {
     var p = S(i, k), theme = themeOf(i, k), used = k === 's' ? [] : pickedElsewhere(i, k);
@@ -268,7 +273,7 @@
     return list;
   }
   function optHtml(r, i, act, k) {
-    return '<button class="opt" data-a="' + (act || 'pick') + '" data-i="' + i + '" data-mk="' + (k || 'd') + '" data-id="' + r.id + '"><span><span class="opt-title">' + r.t + '</span><span class="opt-sub" style="display:block">' + r.c + ' · ' + madeLabel(r) + '</span></span><span class="opt-time">' + fmtMin(r.total) + '</span></button>';
+    return '<button class="opt" data-a="' + (act || 'pick') + '" data-i="' + i + '" data-mk="' + (k || 'd') + '" data-id="' + r.id + '"><span><span class="opt-title">' + r.t + '</span><span class="opt-sub" style="display:block">' + (tagText(r, 2) ? tagText(r, 2) + ' · ' : '') + madeLabel(r) + '</span></span><span class="opt-time">' + fmtMin(r.total) + '</span></button>';
   }
   var mq = window.matchMedia ? window.matchMedia('(min-width: 900px)') : { matches: false };
   function isDesk() { return mq.matches; }
@@ -319,7 +324,7 @@
     return '<div class="src"><b>Original' + (none ? '' : ' · ' + s.type) + '</b>' + inner + '</div>';
   }
   function detailHtml(r, s) {
-    return '<div class="detail"><div class="detail-head"><span class="tag">' + r.c + '</span><h2>' + r.t + '</h2></div>' +
+    return '<div class="detail"><div class="detail-head">' + tagBadge(r) + '<h2>' + r.t + '</h2></div>' +
       '<div class="facts"><div class="fact"><b>' + fmtMin(r.prep) + '</b><span>Prep</span></div><div class="fact"><b>' + fmtMin(r.total) + '</b><span>Total</span></div><div class="fact"><b>' + fmtQty(r.serves * s) + '</b><span>Servings</span></div></div>' +
       '<div class="sheet-cols"><div><h3>Ingredients</h3><ul class="ing">' + r.ing.map(function (g) { return '<li><span class="q">' + fmtQty(g[0] * s) + unitLabel(g[1], g[0] * s) + '</span><span>' + g[2] + '</span>' + (isPantry(g[2]) ? '<span class="pt">pantry</span>' : '') + '</li>'; }).join('') + '</ul></div>' +
       '<div><h3>Steps</h3><ol class="steps">' + r.steps.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ol></div></div>' +
@@ -336,7 +341,7 @@
     else return o;
     var r = byId[q.pick];
     o.text = r.t; o.time = r.total; o.kind = 'recipe'; o.id = q.pick; o.r = r;
-    o.sub = r.c + ' · serves ' + fmtQty(r.serves * q.scale);
+    o.sub = (tagText(r, 2) ? tagText(r, 2) + ' · ' : '') + 'serves ' + fmtQty(r.serves * q.scale);
     if (k === 'd' && meals.s && p.m.s.pick && byId[p.m.s.pick]) o.side = byId[p.m.s.pick];
     return o;
   }
@@ -375,10 +380,10 @@
     var ok = openKey(p);
     return head + keys.map(function (k) { var o = ok === k; return '<section class="msec">' + secHead(i, k, o) + (o ? '<div class="mbody">' + paneBody(i, k) + '</div>' : '') + '</section>'; }).join('');
   }
-  var XLABEL = { dessert: 'Desserts', baking: 'Baking', drink: 'Drinks', other: 'Other', dinner: 'Dinners', breakfast: 'Breakfasts', lunch: 'Lunches', side: 'Sides' };
+  var XLABEL = { dessert: 'Desserts', drink: 'Drinks', sauce: 'Sauces', dinner: 'Dinners', breakfast: 'Breakfasts', lunch: 'Lunches', side: 'Sides' };
   function extrasHtml() {
     var have = extras.map(function (x) { return x.id; });
-    var groups = ['dessert', 'baking', 'drink', 'other', 'dinner', 'breakfast', 'lunch', 'side'];
+    var groups = ['dessert', 'drink', 'sauce', 'dinner', 'breakfast', 'lunch', 'side'];
     var opts = groups.map(function (g) {
       var list = R.filter(function (r) { return r.meal === g && have.indexOf(r.id) < 0; });
       return list.length ? '<optgroup label="' + XLABEL[g] + '">' + list.map(function (r) { return '<option value="' + r.id + '">' + r.t + '</option>'; }).join('') + '</optgroup>' : '';
@@ -404,7 +409,7 @@
     if (p.mode !== 'cook') return '';
     if (p.pick && !p.open) {
       var r = byId[p.pick];
-      return '<div class="picked"><div class="picked-row"><button class="picked-title" data-a="view" data-id="' + r.id + '">' + r.t + '</button><span class="tag">' + r.c + '</span></div>' +
+      return '<div class="picked"><div class="picked-row"><button class="picked-title" data-a="view" data-id="' + r.id + '">' + r.t + '</button>' + tagBadge(r) + '</div>' +
         '<div class="meta"><span>Prep ' + fmtMin(r.prep) + '</span><span>Total ' + fmtMin(r.total) + '</span><span>Serves ' + fmtQty(r.serves * p.scale) + '</span></div>' +
         '<div class="row-tools">' + scaleSeg(i, k, p) + backBtn(i, k) + '</div>' + (k === 'd' ? sideRow(i) : '') + '</div>';
     }
@@ -446,7 +451,7 @@
       h += '<div class="wk-day"><div class="wk-dn"><b>' + DAYS[i] + '</b><small>' + DATES[i] + '</small></div><div class="wk-boxes" style="--n:' + keys.length + '">' + keys.map(function (k) { return weekBox(i, k); }).join('') + '</div></div>';
     });
     h += '</div>';
-    if (extras.length) h += '<section class="extras"><h2 class="ex-h">Extras</h2>' + extras.map(function (x) { var r = byId[x.id]; return '<button class="wrow" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + (x.scale !== 1 ? ' (' + scaleLabel(x.scale) + ')' : '') + '</span><span class="s">' + (XLABEL[r.meal] || r.meal).toLowerCase() + ' · ' + r.c + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>'; }).join('') + '</section>';
+    if (extras.length) h += '<section class="extras"><h2 class="ex-h">Extras</h2>' + extras.map(function (x) { var r = byId[x.id]; return '<button class="wrow" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + (x.scale !== 1 ? ' (' + scaleLabel(x.scale) + ')' : '') + '</span><span class="s">' + (XLABEL[r.meal] || r.meal).toLowerCase() + (tagText(r, 2) ? ' · ' + tagText(r, 2) : '') + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>'; }).join('') + '</section>';
     return h;
   }
 
@@ -510,13 +515,18 @@
   }
 
   function renderRecipes() {
-    var h = '<input class="search" id="rsearch" type="search" placeholder="Search recipes" aria-label="Search recipes" value="' + esc(rQuery) + '"><div class="chips" role="group" aria-label="Cuisine">' + CUISINES.map(function (c) { return '<button class="chip" data-a="rf" data-c="' + c + '" aria-pressed="' + (rFilter === c) + '">' + c + '</button>'; }).join('') + '</div><div class="chips" role="group" aria-label="Meal" style="padding-top:0">' + [['all','All'],['dinner','Dinner'],['breakfast','Breakfast'],['lunch','Lunch'],['side','Sides'],['dessert','Desserts'],['baking','Baking'],['drink','Drinks'],['other','Other']].filter(function (m) { return m[0] === 'all' || R.some(function (r) { return r.meal === m[0]; }); }).map(function (m) { return '<button class="chip" data-a="rm" data-m="' + m[0] + '" aria-pressed="' + (rMeal === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div><div class="rlist">';
-    var tagSet = []; R.forEach(function (r) { (r.tags || []).forEach(function (t) { if (tagSet.indexOf(t) < 0) tagSet.push(t); }); }); tagSet.sort();
-    if (rTag && tagSet.indexOf(rTag) < 0) rTag = '';
-    if (tagSet.length) h = h.replace('<div class="rlist">', '<div class="chips" role="group" aria-label="Tags" style="padding-top:0">' + ['Any tag'].concat(tagSet).map(function (t) { var v = t === 'Any tag' ? '' : t; return '<button class="chip" data-a="rt" data-t="' + esc(v) + '" aria-pressed="' + (rTag === v) + '">' + esc(t) + '</button>'; }).join('') + '</div><div class="rlist">');
-    R.filter(function (r) { return (rFilter === 'All' || r.c === rFilter) && (rMeal === 'all' || r.meal === rMeal) && (!rTag || (r.tags || []).indexOf(rTag) > -1); }).forEach(function (r) {
-      var q = (r.t + ' ' + r.c + ' ' + r.meal + ' ' + (r.tags || []).join(' ')).toLowerCase().replace(/&amp;/g, '&');
-      h += '<button class="wrow"' + (rQuery && q.indexOf(rQuery.toLowerCase()) < 0 ? ' hidden' : '') + ' data-q="' + esc(q) + '" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + '</span><span class="s">' + (r.meal === 'dinner' ? '' : (r.meal === 'side' ? 'side' : r.meal) + ' · ') + r.c + ' · prep ' + fmtMin(r.prep) + ' · ' + madeLabel(r) + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>';
+    var h = '<input class="search" id="rsearch" type="search" placeholder="Search recipes" aria-label="Search recipes" value="' + esc(rQuery) + '"><div class="chips" role="group" aria-label="Meal">' + [['all','All'],['dinner','Dinner'],['breakfast','Breakfast'],['lunch','Lunch'],['side','Sides'],['dessert','Desserts'],['drink','Drinks'],['sauce','Sauces']].filter(function (m) { return m[0] === 'all' || R.some(function (r) { return r.meal === m[0]; }); }).map(function (m) { return '<button class="chip" data-a="rm" data-m="' + m[0] + '" aria-pressed="' + (rMeal === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div><div class="rlist">';
+    if (rTag && !TAGCOUNT[rTag]) rTag = '';
+    if (TAGSORTED.length) {
+      var shown = rMore ? TAGSORTED.slice().sort() : TAGSORTED.slice(0, 10);
+      if (rTag && shown.indexOf(rTag) < 0) shown.push(rTag);
+      var tagBtns = ['Any tag'].concat(shown).map(function (k) { var v = k === 'Any tag' ? '' : k; return '<button class="chip" data-a="rt" data-t="' + esc(v) + '" aria-pressed="' + (rTag === v) + '">' + (v ? TAGNAME[k] : k) + '</button>'; }).join('');
+      if (TAGSORTED.length > 10) tagBtns += '<button class="chip" data-a="rmore" aria-pressed="false" style="border-style:dashed">' + (rMore ? 'Fewer tags' : 'More tags (' + (TAGSORTED.length - 10) + ')') + '</button>';
+      h = h.replace('<div class="rlist">', '<div class="chips' + (rMore ? ' wrap' : '') + '" role="group" aria-label="Tags" style="padding-top:0">' + tagBtns + '</div><div class="rlist">');
+    }
+    R.filter(function (r) { return (rMeal === 'all' || r.meal === rMeal) && (!rTag || r.tl.indexOf(rTag) > -1); }).forEach(function (r) {
+      var q = (r.t + ' ' + r.meal + ' ' + r.tags.join(' ')).toLowerCase().replace(/&amp;/g, '&');
+      h += '<button class="wrow"' + (rQuery && q.indexOf(rQuery.toLowerCase()) < 0 ? ' hidden' : '') + ' data-q="' + esc(q) + '" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + '</span><span class="s">' + (r.meal === 'dinner' ? '' : (r.meal === 'side' ? 'side' : r.meal) + ' · ') + (tagText(r, 2) ? tagText(r, 2) + ' · ' : '') + 'prep ' + fmtMin(r.prep) + ' · ' + madeLabel(r) + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>';
     });
     return h + '</div>';
   }
@@ -525,7 +535,7 @@
     var el = document.getElementById('sheet');
     if (!sheet) { el.hidden = true; el.innerHTML = ''; document.body.style.overflow = ''; return; }
     var r = byId[sheet.id], s = sheet.scale;
-    var h = '<div class="sheet-in"><div class="sheet-top"><span class="tag">' + r.c + '</span><button class="link-btn" data-a="close">Close</button></div><h2>' + r.t + '</h2>' +
+    var h = '<div class="sheet-in"><div class="sheet-top">' + (tagBadge(r) || '<span></span>') + '<button class="link-btn" data-a="close">Close</button></div><h2>' + r.t + '</h2>' +
       '<div class="facts"><div class="fact"><b>' + fmtMin(r.prep) + '</b><span>Prep</span></div><div class="fact"><b>' + fmtMin(r.total) + '</b><span>Total</span></div><div class="fact"><b>' + fmtQty(r.serves * s) + '</b><span>Servings</span></div></div>' +
       '<div class="row-tools"><span class="meta">Recipe makes ' + r.serves + '</span><div class="seg" role="group" aria-label="Scale">' + SCALES.map(function (x) { return '<button data-a="sscale" data-s="' + x + '" aria-pressed="' + (s === x) + '">' + scaleLabel(x) + '</button>'; }).join('') + '</div></div>' +
       '<div class="sheet-cols"><div><h3>Ingredients</h3><ul class="ing">' + r.ing.map(function (g) { return '<li><span class="q">' + fmtQty(g[0] * s) + unitLabel(g[1], g[0] * s) + '</span><span>' + g[2] + '</span>' + (isPantry(g[2]) ? '<span class="pt">pantry</span>' : '') + '</li>'; }).join('') + '</ul></div>' +
@@ -536,7 +546,7 @@
 
   function styleOptions() {
     var out = [], seen = {};
-    R.forEach(function (r) { [r.c].concat(r.tags || []).forEach(function (n) { var k = String(n).toLowerCase(); if (n && !seen[k]) { seen[k] = 1; out.push(n); } }); });
+    R.forEach(function (r) { (r.tags || []).forEach(function (n) { var k = String(n).toLowerCase(); if (n && !seen[k]) { seen[k] = 1; out.push(n); } }); });
     return out.sort(function (a, b) { return String(a).localeCompare(String(b)); });
   }
   function themesHtml() {
@@ -547,7 +557,7 @@
         (has ? '' : '<option value="' + esc(cur) + '" selected>' + esc(cur) + '</option>') +
         opts.map(function (o) { return '<option value="' + esc(o) + '"' + (String(cur).toLowerCase() === o.toLowerCase() ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>';
     }).join('');
-    return '<h2 class="set-h">Theme nights</h2><p class="intro" style="margin:0 0 4px">Pick a cuisine or tag for a night and it is suggested first when you plan that night.' + (prefs.themes ? ' <button class="link-btn" data-a="resetthemes" style="display:inline;min-height:0;padding:0">Use the site defaults</button>' : '') + '</p><div class="setlist">' + rows + '</div>';
+    return '<h2 class="set-h">Theme nights</h2><p class="intro" style="margin:0 0 4px">Pick a tag for a night and it is suggested first when you plan that night.' + (prefs.themes ? ' <button class="link-btn" data-a="resetthemes" style="display:inline;min-height:0;padding:0">Use the site defaults</button>' : '') + '</p><div class="setlist">' + rows + '</div>';
   }
   function pantryHtml() {
     return '<h2 class="set-h">Pantry staples</h2><p class="intro" style="margin:0 0 8px">Left off your grocery lists. Type ingredient names as they appear in the recipes, separated by commas.' + (prefs.pantry ? ' <button class="link-btn" data-a="resetpantry" style="display:inline;min-height:0;padding:0">Use the site defaults</button>' : '') + '</p>' +
@@ -639,7 +649,7 @@
     else if (a === 'xscale') { extras[+b.dataset.n].scale = +b.dataset.s; }
     else if (a === 'xrm') { extras.splice(+b.dataset.n, 1); }
     else if (a === 'shopthis') { shop = { mode: 'any', day: shop.day, rid: sheet.id, scale: sheet.scale }; anyChecked = {}; sheet = null; renderSheet(); view = 'shop'; window.scrollTo(0, 0); }
-    else if (a === 'rf') { rFilter = b.dataset.c; }
+    else if (a === 'rmore') { rMore = !rMore; }
     else if (a === 'rm') { rMeal = b.dataset.m; }
     else if (a === 'rt') { rTag = b.dataset.t; }
     else if (a === 'meal') { var mk = b.dataset.k, nv = !meals[mk]; if (!nv && mk !== 's' && !['b','l','d'].filter(function (x) { return x !== mk && meals[x]; }).length) nv = true; meals[mk] = nv; }

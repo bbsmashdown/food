@@ -1,13 +1,13 @@
 # Food settings. Lines starting with # are notes and are ignored.
 # After you change this file on GitHub, the site rebuilds by itself in about a minute.
 
-# Theme nights. Format:  theme: day = Cuisine
+# Theme nights. Format:  theme: day = Tag
 # Days: mon tue wed thu fri sat sun. Delete a line to remove a theme.
 theme: tue = Mexican
 theme: thu = Italian
 
-# Groups for the "By cuisine" buttons. Format:  genre: Button name = cuisine, cuisine
-# Names can match either the "cuisine:" line or a word in the "tags:" line of your recipe files.
+# Groups for the "By style" buttons in the planner. Format:  genre: Button name = tag, tag
+# Each name must match a word in the "tags:" line of your recipe files (capitals do not matter).
 genre: Mexican = Mexican
 genre: Italian = Italian
 genre: Asian = Thai, Chinese
