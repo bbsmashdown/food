@@ -340,7 +340,7 @@
     if (p.mode === '') return '<p class="empty-note">Choose Cook, Leftovers or Take-out for this ' + (k === 'd' ? 'night from the list' : 'meal') + '.</p>';
     if (p.mode === 'left') return '<p class="empty-note">Leftovers. Nothing to cook.</p>';
     if (p.mode === 'out') return '<p class="empty-note">Take-out. Nothing to cook.</p>';
-    if (p.pick && !p.open) return (k === 'd' && meals.s ? '<div class="slot-l side-l">Dinner · ' + byId[p.pick].t + '</div>' : '') + '<div class="row-tools">' + scaleSeg(i, k, p) + backBtn(i, k) + '</div>' + (k === 'd' ? sideRow(i) : '') + detailHtml(byId[p.pick], p.scale) + (k === 'd' ? sideDetail(i) : '');
+    if (p.pick && !p.open) return '<div class="row-tools">' + scaleSeg(i, k, p) + backBtn(i, k) + '</div>' + detailHtml(byId[p.pick], p.scale) + (k === 'd' ? sideRow(i) + sideDetail(i) : '');
     return suggestBlock(i, k, true);
   }
   function modeRow(i, k) { return '<div class="slot"><label class="slot-l" for="mode-' + (k === 'd' ? '' : k + '-') + i + '">Plan</label>' + modeSel(i, S(i, k), k) + '</div>'; }
