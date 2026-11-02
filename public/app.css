@@ -1,7 +1,7 @@
 /* Layout: one phone-width column, sticky header, bottom tab bar (Plan / Week / Groceries / Recipes). */
 :root {
   --bg: #FFFCF0;
-  --surface: #F2F0E5;
+  --surface: #F8F6EC;
   --ink: #100F0F;
   --muted: #6F6E69;
   --line: #DAD8CE;
