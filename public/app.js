@@ -194,12 +194,16 @@
   };
 
   function fmtMin(m) { var h = Math.floor(m / 60), r = m % 60; return h ? (h + ' hr' + (r ? ' ' + r + ' min' : '')) : m + ' min'; }
+  var FRAC = [[0, ''], [1 / 8, '⅛'], [1 / 4, '¼'], [1 / 3, '⅓'], [3 / 8, '⅜'], [1 / 2, '½'], [5 / 8, '⅝'], [2 / 3, '⅔'], [3 / 4, '¾'], [7 / 8, '⅞'], [1, '']];
   function fmtQty(n) {
-    var r = Math.round(n * 4) / 4, w = Math.floor(r), f = r - w;
-    var fr = f === 0.25 ? '¼' : f === 0.5 ? '½' : f === 0.75 ? '¾' : '';
-    if (w === 0) return fr || '¼';
-    return String(w) + fr;
+    var w = Math.floor(n + 1e-9), f = n - w, best = FRAC[0], i;
+    for (i = 1; i < FRAC.length; i++) if (Math.abs(FRAC[i][0] - f) < Math.abs(best[0] - f)) best = FRAC[i];
+    if (best[0] === 1) { w += 1; best = FRAC[0]; }
+    if (w === 0 && !best[1]) return '⅛';
+    return (w ? String(w) : '') + best[1];
   }
+  var SCALES = [0.5, 1, 2, 3];
+  function scaleLabel(x) { return x === 0.5 ? '½×' : x + '×'; }
   function unitLabel(u, q) { return u ? (' ' + u + (PLURAL[u] && q > 1 ? 's' : '')) : ''; }
   function madeLabel(r) { if (r.made == null) return 'Not made yet'; if (r.made < 14) return 'Made ' + r.made + ' days ago'; return 'Made ' + Math.floor(r.made / 7) + ' wks ago'; }
   function isPantry(name) { return PANTRY.indexOf(String(name).toLowerCase()) > -1; }
@@ -292,7 +296,7 @@
       list.map(function (r) { return '<option value="' + r.id + '"' + (p.pick === r.id ? ' selected' : '') + '>' + r.t + ' · ' + fmtMin(r.total) + '</option>'; }).join('') + '</select>';
     if (p.pick && byId[p.pick]) {
       var r = byId[p.pick];
-      h += '<div class="meta"><span>Prep ' + fmtMin(r.prep) + '</span><span>Total ' + fmtMin(r.total) + '</span><span>Serves ' + (r.serves * p.scale) + '</span></div>' +
+      h += '<div class="meta"><span>Prep ' + fmtMin(r.prep) + '</span><span>Total ' + fmtMin(r.total) + '</span><span>Serves ' + fmtQty(r.serves * p.scale) + '</span></div>' +
         '<div class="row-tools">' + scaleSeg(i, 's', p) + '<button class="link-btn" data-a="view" data-id="' + r.id + '">View recipe</button></div>';
     }
     return h + '</div>';
@@ -316,7 +320,7 @@
   }
   function detailHtml(r, s) {
     return '<div class="detail"><div class="detail-head"><span class="tag">' + r.c + '</span><h2>' + r.t + '</h2></div>' +
-      '<div class="facts"><div class="fact"><b>' + fmtMin(r.prep) + '</b><span>Prep</span></div><div class="fact"><b>' + fmtMin(r.total) + '</b><span>Total</span></div><div class="fact"><b>' + (r.serves * s) + '</b><span>Servings</span></div></div>' +
+      '<div class="facts"><div class="fact"><b>' + fmtMin(r.prep) + '</b><span>Prep</span></div><div class="fact"><b>' + fmtMin(r.total) + '</b><span>Total</span></div><div class="fact"><b>' + fmtQty(r.serves * s) + '</b><span>Servings</span></div></div>' +
       '<div class="sheet-cols"><div><h3>Ingredients</h3><ul class="ing">' + r.ing.map(function (g) { return '<li><span class="q">' + fmtQty(g[0] * s) + unitLabel(g[1], g[0] * s) + '</span><span>' + g[2] + '</span>' + (isPantry(g[2]) ? '<span class="pt">pantry</span>' : '') + '</li>'; }).join('') + '</ul></div>' +
       '<div><h3>Steps</h3><ol class="steps">' + r.steps.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ol></div></div>' +
       srcHtml(r) + '</div>';
@@ -332,7 +336,7 @@
     else return o;
     var r = byId[q.pick];
     o.text = r.t; o.time = r.total; o.kind = 'recipe'; o.id = q.pick; o.r = r;
-    o.sub = r.c + ' · serves ' + r.serves * q.scale;
+    o.sub = r.c + ' · serves ' + fmtQty(r.serves * q.scale);
     if (k === 'd' && meals.s && p.m.s.pick && byId[p.m.s.pick]) o.side = byId[p.m.s.pick];
     return o;
   }
@@ -345,7 +349,7 @@
     return '<button class="ln" data-a="selmeal" data-i="' + i + '" data-k="' + k + '"' + (cur ? ' aria-current="true"' : '') + '><span class="lk">' + m.label + '</span><span class="lv ' + m.kind + '">' + m.text + (m.side ? ' + ' + m.side.t : '') + '</span><span class="lt">' + (m.time ? fmtMin(m.time) : '') + '</span></button>';
   }
   function scaleSeg(i, k, p) {
-    return '<div class="seg" role="group" aria-label="Scale">' + [1,2,3].map(function (x) { return '<button data-a="scale" data-i="' + i + '" data-mk="' + k + '" data-s="' + x + '" aria-pressed="' + (p.scale === x) + '">' + x + '×</button>'; }).join('') + '</div>';
+    return '<div class="seg" role="group" aria-label="Scale">' + SCALES.map(function (x) { return '<button data-a="scale" data-i="' + i + '" data-mk="' + k + '" data-s="' + x + '" aria-pressed="' + (p.scale === x) + '">' + scaleLabel(x) + '</button>'; }).join('') + '</div>';
   }
   function suggestBlock(i, k, flat) {
     var p = S(i, k), list = suggestions(i, k);
@@ -382,7 +386,7 @@
     var h = '<section class="extras"><h2 class="ex-h">Extras</h2><p class="intro" style="margin:0 0 10px">Smoothies, muffins, dessert, anything not tied to a night. Their ingredients go on this week\'s grocery list.</p>';
     extras.forEach(function (x, n) {
       var r = byId[x.id];
-      h += '<div class="ex-row"><button class="picked-title" data-a="view" data-id="' + r.id + '">' + r.t + '</button><div class="row-tools"><div class="seg" role="group" aria-label="Scale">' + [1, 2, 3].map(function (m) { return '<button data-a="xscale" data-n="' + n + '" data-s="' + m + '" aria-pressed="' + (x.scale === m) + '">' + m + '×</button>'; }).join('') + '</div><button class="link-btn" data-a="xrm" data-n="' + n + '">Remove</button></div></div>';
+      h += '<div class="ex-row"><button class="picked-title" data-a="view" data-id="' + r.id + '">' + r.t + '</button><div class="row-tools"><div class="seg" role="group" aria-label="Scale">' + SCALES.map(function (m) { return '<button data-a="xscale" data-n="' + n + '" data-s="' + m + '" aria-pressed="' + (x.scale === m) + '">' + scaleLabel(m) + '</button>'; }).join('') + '</div><button class="link-btn" data-a="xrm" data-n="' + n + '">Remove</button></div></div>';
     });
     if (opts) h += '<select class="pick-sel" data-sel="xadd" aria-label="Add an extra"><option value="">+ Add an extra</option>' + opts + '</select>';
     return h + '</section>';
@@ -401,7 +405,7 @@
     if (p.pick && !p.open) {
       var r = byId[p.pick];
       return '<div class="picked"><div class="picked-row"><button class="picked-title" data-a="view" data-id="' + r.id + '">' + r.t + '</button><span class="tag">' + r.c + '</span></div>' +
-        '<div class="meta"><span>Prep ' + fmtMin(r.prep) + '</span><span>Total ' + fmtMin(r.total) + '</span><span>Serves ' + (r.serves * p.scale) + '</span></div>' +
+        '<div class="meta"><span>Prep ' + fmtMin(r.prep) + '</span><span>Total ' + fmtMin(r.total) + '</span><span>Serves ' + fmtQty(r.serves * p.scale) + '</span></div>' +
         '<div class="row-tools">' + scaleSeg(i, k, p) + backBtn(i, k) + '</div>' + (k === 'd' ? sideRow(i) : '') + '</div>';
     }
     return suggestBlock(i, k, false);
@@ -442,7 +446,7 @@
       h += '<div class="wk-day"><div class="wk-dn"><b>' + DAYS[i] + '</b><small>' + DATES[i] + '</small></div><div class="wk-boxes" style="--n:' + keys.length + '">' + keys.map(function (k) { return weekBox(i, k); }).join('') + '</div></div>';
     });
     h += '</div>';
-    if (extras.length) h += '<section class="extras"><h2 class="ex-h">Extras</h2>' + extras.map(function (x) { var r = byId[x.id]; return '<button class="wrow" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + (x.scale > 1 ? ' (' + x.scale + '×)' : '') + '</span><span class="s">' + (XLABEL[r.meal] || r.meal).toLowerCase() + ' · ' + r.c + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>'; }).join('') + '</section>';
+    if (extras.length) h += '<section class="extras"><h2 class="ex-h">Extras</h2>' + extras.map(function (x) { var r = byId[x.id]; return '<button class="wrow" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + (x.scale !== 1 ? ' (' + scaleLabel(x.scale) + ')' : '') + '</span><span class="s">' + (XLABEL[r.meal] || r.meal).toLowerCase() + ' · ' + r.c + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>'; }).join('') + '</section>';
     return h;
   }
 
@@ -483,9 +487,9 @@
     if (planned.length && planned.indexOf(shop.day) < 0) shop.day = planned[0];
     var any = shop.mode === 'any', ck = any ? anyChecked : checked;
     var data = shopData();
-    var h = any ? '<div class="shop-ctl"><div class="set-row" style="border:0;padding:0"><div><div class="set-t">' + byId[shop.rid].t + (shop.scale > 1 ? ' (' + shop.scale + '×)' : '') + '</div><div class="set-s">One-off list. Checks here are not saved to the week.</div></div><button class="link-btn" data-a="smode" data-m="week">Back to week list</button></div></div>' : '<div class="shop-ctl"><div class="seg wide" role="group" aria-label="List type"><button data-a="smode" data-m="week" aria-pressed="' + (shop.mode === 'week') + '">Shop for the week</button><button data-a="smode" data-m="one" aria-pressed="' + (shop.mode === 'one') + '">Shop for one recipe</button></div>';
+    var h = any ? '<div class="shop-ctl"><div class="set-row" style="border:0;padding:0"><div><div class="set-t">' + byId[shop.rid].t + (shop.scale !== 1 ? ' (' + scaleLabel(shop.scale) + ')' : '') + '</div><div class="set-s">One-off list. Checks here are not saved to the week.</div></div><button class="link-btn" data-a="smode" data-m="week">Back to week list</button></div></div>' : '<div class="shop-ctl"><div class="seg wide" role="group" aria-label="List type"><button data-a="smode" data-m="week" aria-pressed="' + (shop.mode === 'week') + '">Shop for the week</button><button data-a="smode" data-m="one" aria-pressed="' + (shop.mode === 'one') + '">Shop for one recipe</button></div>';
     if (shop.mode === 'one') {
-      h += '<select class="pick-sel" id="shop-day" data-sel="shopday" aria-label="Recipe">' + planned.map(function (i) { return '<option value="' + i + '"' + (i === shop.day ? ' selected' : '') + '>' + DAYS[i] + ': ' + byId[plan[i].pick].t + (plan[i].scale > 1 ? ' (' + plan[i].scale + '×)' : '') + '</option>'; }).join('') + '</select>';
+      h += '<select class="pick-sel" id="shop-day" data-sel="shopday" aria-label="Recipe">' + planned.map(function (i) { return '<option value="' + i + '"' + (i === shop.day ? ' selected' : '') + '>' + DAYS[i] + ': ' + byId[plan[i].pick].t + (plan[i].scale !== 1 ? ' (' + scaleLabel(plan[i].scale) + ')' : '') + '</option>'; }).join('') + '</select>';
     }
     if (!any) h += '</div>';
     h += '<div class="aisles">';
@@ -522,8 +526,8 @@
     if (!sheet) { el.hidden = true; el.innerHTML = ''; document.body.style.overflow = ''; return; }
     var r = byId[sheet.id], s = sheet.scale;
     var h = '<div class="sheet-in"><div class="sheet-top"><span class="tag">' + r.c + '</span><button class="link-btn" data-a="close">Close</button></div><h2>' + r.t + '</h2>' +
-      '<div class="facts"><div class="fact"><b>' + fmtMin(r.prep) + '</b><span>Prep</span></div><div class="fact"><b>' + fmtMin(r.total) + '</b><span>Total</span></div><div class="fact"><b>' + (r.serves * s) + '</b><span>Servings</span></div></div>' +
-      '<div class="row-tools"><span class="meta">Recipe makes ' + r.serves + '</span><div class="seg" role="group" aria-label="Scale">' + [1,2,3].map(function (x) { return '<button data-a="sscale" data-s="' + x + '" aria-pressed="' + (s === x) + '">' + x + '×</button>'; }).join('') + '</div></div>' +
+      '<div class="facts"><div class="fact"><b>' + fmtMin(r.prep) + '</b><span>Prep</span></div><div class="fact"><b>' + fmtMin(r.total) + '</b><span>Total</span></div><div class="fact"><b>' + fmtQty(r.serves * s) + '</b><span>Servings</span></div></div>' +
+      '<div class="row-tools"><span class="meta">Recipe makes ' + r.serves + '</span><div class="seg" role="group" aria-label="Scale">' + SCALES.map(function (x) { return '<button data-a="sscale" data-s="' + x + '" aria-pressed="' + (s === x) + '">' + scaleLabel(x) + '</button>'; }).join('') + '</div></div>' +
       '<div class="sheet-cols"><div><h3>Ingredients</h3><ul class="ing">' + r.ing.map(function (g) { return '<li><span class="q">' + fmtQty(g[0] * s) + unitLabel(g[1], g[0] * s) + '</span><span>' + g[2] + '</span>' + (isPantry(g[2]) ? '<span class="pt">pantry</span>' : '') + '</li>'; }).join('') + '</ul></div>' +
       '<div><h3>Steps</h3><ol class="steps">' + r.steps.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ol></div></div>' +
       '<div style="padding-top:16px"><button class="btn" data-a="shopthis">Shop for this recipe</button></div>' + srcHtml(r) + '</div>';
