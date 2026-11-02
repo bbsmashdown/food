@@ -11,6 +11,7 @@ NEW IN THIS UPDATE
 - New recipe: On the Mend Spiced Red Lentil-Kale Soup (with photo)
 - templates/recipe-template.md: a reference copy for writing recipes by hand (not published)
 - README updated
+- Settings moved to the bottom of the sidebar on desktop (phone keeps the link at the bottom of the page)
 
 FILES
 build.js

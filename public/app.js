@@ -163,6 +163,7 @@
   var shop = { mode: 'week', day: 0, rid: null, scale: 1 }, anyChecked = {};
   var TITLES = { plan: 'Plan the week', week: 'This week', shop: 'Groceries', recipes: 'Recipes', settings: 'Settings' };
   var ICONS = {
+    settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></svg>',
     plan: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
     week: '<svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
     shop: '<svg viewBox="0 0 24 24"><path d="M4 5h2l2 11h10l2-8H7"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>',
@@ -504,6 +505,8 @@
     document.getElementById('wk-today').hidden = weekKey === defaultWeekKey();
     var m = document.getElementById('main');
     m.innerHTML = view === 'plan' ? renderPlan() : view === 'week' ? renderWeek() : view === 'shop' ? renderShop() : view === 'settings' ? renderSettings() : renderRecipes();
+    var ss = document.getElementById('side-set');
+    if (ss) ss.innerHTML = '<button class="tab" data-a="settings"' + (view === 'settings' ? ' aria-current="page"' : '') + '>' + ICONS.settings + 'Settings</button>';
     document.getElementById('foot').innerHTML = view === 'settings' ? '' : '<button class="link-btn" data-a="settings">Settings</button>';
     var t = document.getElementById('tabs');
     t.innerHTML = [['plan','Plan'],['week','Week'],['shop','Groceries'],['recipes','Recipes']].map(function (x) {
