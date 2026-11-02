@@ -7,12 +7,14 @@ theme: tue = Mexican
 theme: thu = Italian
 
 # Groups for the "By cuisine" buttons. Format:  genre: Button name = cuisine, cuisine
-# The cuisine names must match the "cuisine:" line in your recipe files.
+# Names can match either the "cuisine:" line or a word in the "tags:" line of your recipe files.
 genre: Mexican = Mexican
 genre: Italian = Italian
 genre: Asian = Thai, Chinese
 genre: Indian = Indian
 genre: American = American
+genre: Soup = soup
+genre: Barbecue = barbecue
 
 # Pantry staples. These are left off your grocery lists. Separate with commas.
 pantry: salt, pepper, sugar, soy sauce, flour, cumin, coriander, curry powder, chili powder, onion powder, garlic powder, bay leaves, paprika, olive oil

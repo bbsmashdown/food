@@ -2,11 +2,12 @@
 title: On the Mend Spiced Red Lentil-Kale Soup
 meal: dinner
 cuisine: American
+tags: soup
 prep: 25
 total: 55
 serves: 3
 source_type: photo
-source_label: Oh She Glows Cookbook, p. 131 (Soup)
+source_label: Cookbook, p. 131 (Soup)
 source_url: /attachments/red-lentil-kale-soup.jpg
 ---
 

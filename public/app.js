@@ -19,7 +19,7 @@
   var DATES = [];
   var THEMES = {}, PANTRY = [], GENRES = {};
   var AISLES = { produce: 'Produce', meat: 'Meat & seafood', dairy: 'Dairy & eggs', dry: 'Dry & canned', bread: 'Bread & tortillas' };
-  var PLURAL = { can: 1, clove: 1, bunch: 1, stalk: 1, head: 1, jar: 1 };
+  var PLURAL = { handful: 1, can: 1, clove: 1, bunch: 1, stalk: 1, head: 1, jar: 1 };
   var R = [], byId = {}, CUISINES = ['All'];
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function loadData(data) {
@@ -65,10 +65,10 @@
     return o;
   }
   function isEmptyDay(d) { return d.mode === '' && !d.pick && ['b', 'l'].every(function (k) { return d.m[k].mode === 'cook' && !d.m[k].pick; }); }
-  var WEEKS = {}, weekKey = defaultWeekKey(), plan = [], checked = {}, selDay = 0;
-  function getWeek(key) { if (!WEEKS[key]) WEEKS[key] = { days: DAYS.map(function () { return newDay(); }), checked: {} }; return WEEKS[key]; }
+  var WEEKS = {}, weekKey = defaultWeekKey(), plan = [], checked = {}, extras = [], selDay = 0;
+  function getWeek(key) { if (!WEEKS[key]) WEEKS[key] = { days: DAYS.map(function () { return newDay(); }), checked: {}, extras: [] }; return WEEKS[key]; }
   function enterWeek(key, keepSel) {
-    weekKey = key; var w = getWeek(key); plan = w.days; checked = w.checked; setDates();
+    weekKey = key; var w = getWeek(key); plan = w.days; checked = w.checked; extras = w.extras; setDates();
     if (!keepSel) { selDay = 0; for (var i = 0; i < 7; i++) { if (plan[i].mode === 'cook' && !plan[i].pick) { selDay = i; break; } } }
   }
   function S(i, k) { return (!k || k === 'd') ? plan[i] : plan[i].m[k]; }
@@ -78,8 +78,8 @@
     Object.keys(WEEKS).forEach(function (k) {
       var w = WEEKS[k], ck = {};
       Object.keys(w.checked).forEach(function (x) { if (w.checked[x]) ck[x] = true; });
-      if (w.days.every(isEmptyDay) && !Object.keys(ck).length) return;
-      weeks[k] = { days: w.days.map(saveDay), checked: ck };
+      if (w.days.every(isEmptyDay) && !Object.keys(ck).length && !w.extras.length) return;
+      weeks[k] = { days: w.days.map(saveDay), checked: ck, extras: w.extras.map(function (x) { return { id: x.id, scale: x.scale }; }) };
     });
     return { meals: meals, weeks: weeks };
   }
@@ -89,7 +89,7 @@
     WEEKS = {};
     Object.keys(doc.weeks || {}).forEach(function (k) {
       var w = doc.weeks[k];
-      WEEKS[k] = { days: DAYS.map(function (_, i) { return hydrateDay((w.days || [])[i]); }), checked: w.checked || {} };
+      WEEKS[k] = { days: DAYS.map(function (_, i) { return hydrateDay((w.days || [])[i]); }), checked: w.checked || {}, extras: (w.extras || []).filter(function (x) { return byId[x.id]; }).map(function (x) { return { id: x.id, scale: x.scale || 1 }; }) };
     });
     enterWeek(weekKey, keepSel);
   }
@@ -157,10 +157,10 @@
       if (doc && doc.version > VERSION) { applyDoc(doc, true); render(); }
     }).catch(function () {});
   }
-  var MUT = ['pick', 'change', 'keep', 'scale', 'check', 'meal'];
+  var MUT = ['pick', 'change', 'keep', 'scale', 'check', 'meal', 'xscale', 'xrm'];
 
-  var view = 'plan', sheet = null, rFilter = 'All', rMeal = 'all', rQuery = '';
-  var shop = { mode: 'week', day: 0 };
+  var view = 'plan', sheet = null, rFilter = 'All', rMeal = 'all', rTag = '', rQuery = '';
+  var shop = { mode: 'week', day: 0, rid: null, scale: 1 }, anyChecked = {};
   var TITLES = { plan: 'Plan the week', week: 'This week', shop: 'Groceries', recipes: 'Recipes', settings: 'Settings' };
   var ICONS = {
     plan: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
@@ -188,6 +188,7 @@
     return a;
   }
   var MEAL_KIND = { b: 'breakfast', l: 'lunch', d: 'dinner' };
+  function hasStyle(r, n) { n = String(n).toLowerCase(); return String(r.c).toLowerCase() === n || (r.tags || []).indexOf(n) > -1; }
   function themeOf(i, k) { return k === 'd' ? THEMES[i] : null; }
   function sortRow(i, k) {
     if (themeOf(i, k) || S(i, k).sort !== 'cuisine') return '';
@@ -226,12 +227,12 @@
     if (theme) {
       if (p.all) { list = pool; }
       else {
-        var yes = pool.filter(function (r) { return r.c === theme; }), no = pool.filter(function (r) { return r.c !== theme; });
+        var yes = pool.filter(function (r) { return hasStyle(r, theme); }), no = pool.filter(function (r) { return !hasStyle(r, theme); });
         list = yes.concat(no).slice(0, 4);
       }
     } else {
       var m = p.sort || 'stale';
-      var fp = (m === 'cuisine' && p.cuisine) ? pool.filter(function (r) { return GENRES[p.cuisine].indexOf(r.c) > -1; }) : pool;
+      var fp = (m === 'cuisine' && p.cuisine) ? pool.filter(function (r) { return GENRES[p.cuisine].some(function (n) { return hasStyle(r, n); }); }) : pool;
       if (m === 'all') list = fp;
       else if (m === 'random') list = shuffled(fp, (p.seed || 1) * 131 + i * 17 + (k === 'b' ? 3 : k === 'l' ? 5 : 0)).slice(0, 4);
       else list = fp.slice(0, 4);
@@ -335,12 +336,28 @@
     var ok = openKey(p);
     return head + keys.map(function (k) { var o = ok === k; return '<section class="msec">' + secHead(i, k, o) + (o ? '<div class="mbody">' + paneBody(i, k) + '</div>' : '') + '</section>'; }).join('');
   }
+  var XLABEL = { dessert: 'Desserts', baking: 'Baking', drink: 'Drinks', other: 'Other', dinner: 'Dinners', breakfast: 'Breakfasts', lunch: 'Lunches', side: 'Sides' };
+  function extrasHtml() {
+    var have = extras.map(function (x) { return x.id; });
+    var groups = ['dessert', 'baking', 'drink', 'other', 'dinner', 'breakfast', 'lunch', 'side'];
+    var opts = groups.map(function (g) {
+      var list = R.filter(function (r) { return r.meal === g && have.indexOf(r.id) < 0; });
+      return list.length ? '<optgroup label="' + XLABEL[g] + '">' + list.map(function (r) { return '<option value="' + r.id + '">' + r.t + '</option>'; }).join('') + '</optgroup>' : '';
+    }).join('');
+    var h = '<section class="extras"><h2 class="ex-h">Extras</h2><p class="intro" style="margin:0 0 10px">Smoothies, muffins, dessert, anything not tied to a night. Their ingredients go on this week\'s grocery list.</p>';
+    extras.forEach(function (x, n) {
+      var r = byId[x.id];
+      h += '<div class="ex-row"><button class="picked-title" data-a="view" data-id="' + r.id + '">' + r.t + '</button><div class="row-tools"><div class="seg" role="group" aria-label="Scale">' + [1, 2, 3].map(function (m) { return '<button data-a="xscale" data-n="' + n + '" data-s="' + m + '" aria-pressed="' + (x.scale === m) + '">' + m + '×</button>'; }).join('') + '</div><button class="link-btn" data-a="xrm" data-n="' + n + '">Remove</button></div></div>';
+    });
+    if (opts) h += '<select class="pick-sel" data-sel="xadd" aria-label="Add an extra"><option value="">+ Add an extra</option>' + opts + '</select>';
+    return h + '</section>';
+  }
   function renderPlanDesk() {
     var h = mealChips() + '<div class="split"><aside class="daylist" aria-label="Days">';
     plan.forEach(function (p, i) {
       h += '<div class="drow"' + (i === selDay ? ' aria-current="true"' : '') + '><div class="drow-top"><button class="drow-day" data-a="sel" data-i="' + i + '"><span class="d">' + DAYS[i] + ' <small>' + DATES[i] + (THEMES[i] ? ' · ' + THEMES[i] : '') + '</small></span></button>' + (meals.d ? modeSel(i, p, 'd') : '') + '</div><div class="lines">' + enabledKeys().map(function (k) { return lineBtn(i, k); }).join('') + '</div></div>';
     });
-    return h + '</aside><section class="pane">' + paneHtml(selDay) + '</section></div>';
+    return h + '</aside><section class="pane">' + paneHtml(selDay) + '</section></div>' + extrasHtml();
   }
 
   function mobileMeal(i, k) {
@@ -371,7 +388,7 @@
       }
       h += '</section>';
     });
-    return h + '</div>';
+    return h + '</div>' + extrasHtml();
   }
 
   function weekBox(i, k) {
@@ -390,6 +407,7 @@
       h += '<div class="wk-day"><div class="wk-dn"><b>' + DAYS[i] + '</b><small>' + DATES[i] + '</small></div><div class="wk-boxes" style="--n:' + keys.length + '">' + keys.map(function (k) { return weekBox(i, k); }).join('') + '</div></div>';
     });
     h += '</div>';
+    if (extras.length) h += '<section class="extras"><h2 class="ex-h">Extras</h2>' + extras.map(function (x) { var r = byId[x.id]; return '<button class="wrow" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + (x.scale > 1 ? ' (' + x.scale + '×)' : '') + '</span><span class="s">' + (XLABEL[r.meal] || r.meal).toLowerCase() + ' · ' + r.c + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>'; }).join('') + '</section>';
     return h;
   }
 
@@ -406,28 +424,30 @@
     });
     return { items: order.map(function (k) { return map[k]; }), hidden: Object.keys(hidden) };
   }
-  function weekItems() { var all = []; plan.forEach(function (p, i) { all = all.concat(dayRecipes(i)); }); return collect(all); }
+  function weekItems() { var all = []; plan.forEach(function (p, i) { all = all.concat(dayRecipes(i)); }); extras.forEach(function (x) { all.push({ r: byId[x.id], s: x.scale }); }); return collect(all); }
   function oneItems(i) { return collect(dayRecipes(i, true)); }
 
   function renderShop() {
+    if (shop.mode === 'any' && !byId[shop.rid]) shop.mode = 'week';
     var planned = []; plan.forEach(function (p, i) { if (meals.d && p.mode === 'cook' && p.pick) planned.push(i); });
-    if (!planned.length && !weekItems().items.length) return '<p class="intro">Pick a recipe on at least one night to build a list.</p>';
-    if (!planned.length) shop.mode = 'week';
+    if (shop.mode !== 'any' && !planned.length && !weekItems().items.length) return '<p class="intro">Pick a recipe on at least one night to build a list.</p>';
+    if (!planned.length && shop.mode !== 'any') shop.mode = 'week';
     if (planned.length && planned.indexOf(shop.day) < 0) shop.day = planned[0];
-    var data = shop.mode === 'week' ? weekItems() : oneItems(shop.day);
-    var h = '<div class="shop-ctl"><div class="seg wide" role="group" aria-label="List type"><button data-a="smode" data-m="week" aria-pressed="' + (shop.mode === 'week') + '">Shop for the week</button><button data-a="smode" data-m="one" aria-pressed="' + (shop.mode === 'one') + '">Shop for one recipe</button></div>';
+    var any = shop.mode === 'any', ck = any ? anyChecked : checked;
+    var data = any ? collect([{ r: byId[shop.rid], s: shop.scale }]) : shop.mode === 'week' ? weekItems() : oneItems(shop.day);
+    var h = any ? '<div class="shop-ctl"><div class="set-row" style="border:0;padding:0"><div><div class="set-t">' + byId[shop.rid].t + (shop.scale > 1 ? ' (' + shop.scale + '×)' : '') + '</div><div class="set-s">One-off list. Checks here are not saved to the week.</div></div><button class="link-btn" data-a="smode" data-m="week">Back to week list</button></div></div>' : '<div class="shop-ctl"><div class="seg wide" role="group" aria-label="List type"><button data-a="smode" data-m="week" aria-pressed="' + (shop.mode === 'week') + '">Shop for the week</button><button data-a="smode" data-m="one" aria-pressed="' + (shop.mode === 'one') + '">Shop for one recipe</button></div>';
     if (shop.mode === 'one') {
       h += '<select class="pick-sel" id="shop-day" data-sel="shopday" aria-label="Recipe">' + planned.map(function (i) { return '<option value="' + i + '"' + (i === shop.day ? ' selected' : '') + '>' + DAYS[i] + ': ' + byId[plan[i].pick].t + (plan[i].scale > 1 ? ' (' + plan[i].scale + '×)' : '') + '</option>'; }).join('') + '</select>';
     }
-    h += '</div>';
+    if (!any) h += '</div>';
     h += '<div class="aisles">';
     Object.keys(AISLES).forEach(function (a) {
       var rows = data.items.filter(function (x) { return x.a === a; });
       if (!rows.length) return;
-      var left = rows.filter(function (x) { return !checked[x.key]; }).length;
+      var left = rows.filter(function (x) { return !ck[x.key]; }).length;
       h += '<section class="aisle"><h3><span>' + AISLES[a] + '</span><span>' + left + ' left</span></h3><ul class="items">';
       rows.forEach(function (x) {
-        h += '<li><button class="item" data-a="check" data-k="' + x.key + '" aria-pressed="' + (!!checked[x.key]) + '"><span class="box" aria-hidden="true">✓</span><span class="txt"><span class="q">' + fmtQty(x.q) + unitLabel(x.unit, x.q) + '</span> ' + x.name + (x.from.length > 1 ? '<span class="from">for ' + x.from.join(' and ') + '</span>' : '') + '</span></button></li>';
+        h += '<li><button class="item" data-a="check" data-k="' + x.key + '" aria-pressed="' + (!!ck[x.key]) + '"><span class="box" aria-hidden="true">✓</span><span class="txt"><span class="q">' + fmtQty(x.q) + unitLabel(x.unit, x.q) + '</span> ' + x.name + (x.from.length > 1 ? '<span class="from">for ' + x.from.join(' and ') + '</span>' : '') + '</span></button></li>';
       });
       h += '</ul></section>';
     });
@@ -437,9 +457,12 @@
   }
 
   function renderRecipes() {
-    var h = '<input class="search" id="rsearch" type="search" placeholder="Search recipes" aria-label="Search recipes" value="' + esc(rQuery) + '"><div class="chips" role="group" aria-label="Cuisine">' + CUISINES.map(function (c) { return '<button class="chip" data-a="rf" data-c="' + c + '" aria-pressed="' + (rFilter === c) + '">' + c + '</button>'; }).join('') + '</div><div class="chips" role="group" aria-label="Meal" style="padding-top:0">' + [['all','All meals'],['dinner','Dinner'],['breakfast','Breakfast'],['lunch','Lunch'],['side','Sides']].map(function (m) { return '<button class="chip" data-a="rm" data-m="' + m[0] + '" aria-pressed="' + (rMeal === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div><div class="rlist">';
-    R.filter(function (r) { return (rFilter === 'All' || r.c === rFilter) && (rMeal === 'all' || r.meal === rMeal); }).forEach(function (r) {
-      var q = (r.t + ' ' + r.c + ' ' + r.meal).toLowerCase().replace(/&amp;/g, '&');
+    var h = '<input class="search" id="rsearch" type="search" placeholder="Search recipes" aria-label="Search recipes" value="' + esc(rQuery) + '"><div class="chips" role="group" aria-label="Cuisine">' + CUISINES.map(function (c) { return '<button class="chip" data-a="rf" data-c="' + c + '" aria-pressed="' + (rFilter === c) + '">' + c + '</button>'; }).join('') + '</div><div class="chips" role="group" aria-label="Meal" style="padding-top:0">' + [['all','All'],['dinner','Dinner'],['breakfast','Breakfast'],['lunch','Lunch'],['side','Sides'],['dessert','Desserts'],['baking','Baking'],['drink','Drinks'],['other','Other']].filter(function (m) { return m[0] === 'all' || R.some(function (r) { return r.meal === m[0]; }); }).map(function (m) { return '<button class="chip" data-a="rm" data-m="' + m[0] + '" aria-pressed="' + (rMeal === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div><div class="rlist">';
+    var tagSet = []; R.forEach(function (r) { (r.tags || []).forEach(function (t) { if (tagSet.indexOf(t) < 0) tagSet.push(t); }); }); tagSet.sort();
+    if (rTag && tagSet.indexOf(rTag) < 0) rTag = '';
+    if (tagSet.length) h = h.replace('<div class="rlist">', '<div class="chips" role="group" aria-label="Tags" style="padding-top:0">' + ['Any tag'].concat(tagSet).map(function (t) { var v = t === 'Any tag' ? '' : t; return '<button class="chip" data-a="rt" data-t="' + esc(v) + '" aria-pressed="' + (rTag === v) + '">' + esc(t) + '</button>'; }).join('') + '</div><div class="rlist">');
+    R.filter(function (r) { return (rFilter === 'All' || r.c === rFilter) && (rMeal === 'all' || r.meal === rMeal) && (!rTag || (r.tags || []).indexOf(rTag) > -1); }).forEach(function (r) {
+      var q = (r.t + ' ' + r.c + ' ' + r.meal + ' ' + (r.tags || []).join(' ')).toLowerCase().replace(/&amp;/g, '&');
       h += '<button class="wrow"' + (rQuery && q.indexOf(rQuery.toLowerCase()) < 0 ? ' hidden' : '') + ' data-q="' + esc(q) + '" style="grid-template-columns:minmax(0,1fr) auto" data-a="view" data-id="' + r.id + '"><span><span class="t" style="display:block">' + r.t + '</span><span class="s">' + (r.meal === 'dinner' ? '' : (r.meal === 'side' ? 'side' : r.meal) + ' · ') + r.c + ' · prep ' + fmtMin(r.prep) + ' · ' + madeLabel(r) + '</span></span><span class="m">' + fmtMin(r.total) + '</span></button>';
     });
     return h + '</div>';
@@ -454,7 +477,7 @@
       '<div class="row-tools"><span class="meta">Recipe makes ' + r.serves + '</span><div class="seg" role="group" aria-label="Scale">' + [1,2,3].map(function (x) { return '<button data-a="sscale" data-s="' + x + '" aria-pressed="' + (s === x) + '">' + x + '×</button>'; }).join('') + '</div></div>' +
       '<div class="sheet-cols"><div><h3>Ingredients</h3><ul class="ing">' + r.ing.map(function (g) { return '<li><span class="q">' + fmtQty(g[0] * s) + unitLabel(g[1], g[0] * s) + '</span><span>' + g[2] + '</span>' + (isPantry(g[2]) ? '<span class="pt">pantry</span>' : '') + '</li>'; }).join('') + '</ul></div>' +
       '<div><h3>Steps</h3><ol class="steps">' + r.steps.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ol></div></div>' +
-      srcHtml(r) + '</div>';
+      '<div style="padding-top:16px"><button class="btn" data-a="shopthis">Shop for this recipe</button></div>' + srcHtml(r) + '</div>';
     el.innerHTML = h; el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden';
   }
 
@@ -492,7 +515,8 @@
     var b = e.target.closest('[data-a]'); if (!b) return;
     var a = b.dataset.a, i = +b.dataset.i;
     if (!READY) return;
-    if (MUT.indexOf(a) > -1 && !canEdit()) { askPass(); return; }
+    var local = a === 'check' && view === 'shop' && shop.mode === 'any';
+    if (MUT.indexOf(a) > -1 && !local && !canEdit()) { askPass(); return; }
     if (a === 'tab') { view = b.dataset.v; try { history.replaceState(null, '', '#' + view); } catch (err) {} window.scrollTo(0, 0); }
     else if (a === 'wk') { var d = +b.dataset.d; enterWeek(d === 0 ? defaultWeekKey() : isoOf(addDays(parseISO(weekKey), 7 * d))); }
     else if (a === 'lock') { setPass(''); setStatus('view', 'View only'); }
@@ -513,16 +537,20 @@
     else if (a === 'close') { sheet = null; renderSheet(); return; }
     else if (a === 'sscale') { sheet.scale = +b.dataset.s; renderSheet(); return; }
     else if (a === 'smode') { shop.mode = b.dataset.m; }
-    else if (a === 'check') { checked[b.dataset.k] = !checked[b.dataset.k]; }
+    else if (a === 'check') { var tgt = local ? anyChecked : checked; tgt[b.dataset.k] = !tgt[b.dataset.k]; }
+    else if (a === 'xscale') { extras[+b.dataset.n].scale = +b.dataset.s; }
+    else if (a === 'xrm') { extras.splice(+b.dataset.n, 1); }
+    else if (a === 'shopthis') { shop = { mode: 'any', day: shop.day, rid: sheet.id, scale: sheet.scale }; anyChecked = {}; sheet = null; renderSheet(); view = 'shop'; window.scrollTo(0, 0); }
     else if (a === 'rf') { rFilter = b.dataset.c; }
     else if (a === 'rm') { rMeal = b.dataset.m; }
+    else if (a === 'rt') { rTag = b.dataset.t; }
     else if (a === 'meal') { var mk = b.dataset.k, nv = !meals[mk]; if (!nv && mk !== 's' && !['b','l','d'].filter(function (x) { return x !== mk && meals[x]; }).length) nv = true; meals[mk] = nv; }
-    if (MUT.indexOf(a) > -1) save();
+    if (MUT.indexOf(a) > -1 && !local) save();
     render();
   });
   document.addEventListener('change', function (e) {
     var s = e.target.closest('[data-sel]'); if (!s) return;
-    if ((s.dataset.sel === 'mode' || s.dataset.sel === 'side') && !canEdit()) { askPass(); render(); return; }
+    if ((s.dataset.sel === 'mode' || s.dataset.sel === 'side' || s.dataset.sel === 'xadd') && !canEdit()) { askPass(); render(); return; }
     if (s.dataset.sel === 'mode') {
       var i = +s.dataset.i, mk = s.dataset.mk || 'd', p = S(i, mk);
       selDay = i; p.mode = s.value; p.open = (s.value === 'cook' && !p.pick); p.all = false;
@@ -532,7 +560,8 @@
     } else if (s.dataset.sel === 'sort') {
       var q = S(+s.dataset.i, s.dataset.mk); q.sort = s.value; if (s.value === 'random') q.seed = (q.seed || 1) + 1;
     } else if (s.dataset.sel === 'shopday') { shop.day = +s.value; }
-    if (['mode', 'side'].indexOf(s.dataset.sel) > -1) save();
+    else if (s.dataset.sel === 'xadd') { if (s.value && byId[s.value]) extras.push({ id: s.value, scale: 1 }); }
+    if (['mode', 'side', 'xadd'].indexOf(s.dataset.sel) > -1) save();
     render();
   });
   if (mq.addEventListener) mq.addEventListener('change', render);

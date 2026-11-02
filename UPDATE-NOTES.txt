@@ -1,0 +1,24 @@
+Meal Planner update. Contents of this zip are the files that changed or are new.
+Copy them over your cloned food folder (replace when asked), then commit and push.
+
+NEW IN THIS UPDATE
+- Recipe-only categories: dessert, baking, drink, other (filter buttons appear once you have one)
+- Extras section on the Plan tab (any recipe, per week, adds to that week's grocery list)
+- "Shop for this recipe" button on any recipe (one-off grocery list)
+- Optional tags: line in recipes, tag buttons on the Recipes tab
+- Soup and Barbecue buttons for the planner (settings.txt)
+- Renamed to "Meal Planner" in the page title, breadcrumb, sidebar and home-screen name
+- New recipe: On the Mend Spiced Red Lentil-Kale Soup (with photo)
+- templates/recipe-template.md: a reference copy for writing recipes by hand (not published)
+- README updated
+
+FILES
+build.js
+settings.txt          (replaces yours; if you edited it, re-apply your changes)
+README.md
+public/app.js
+public/app.css
+public/index.html
+recipes/red-lentil-kale-soup.md
+attachments/red-lentil-kale-soup.jpg
+templates/recipe-template.md

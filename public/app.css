@@ -1,7 +1,7 @@
 /* Layout: one phone-width column, sticky header, bottom tab bar (Plan / Week / Groceries / Recipes). */
 :root {
   --bg: #FFFCF0;
-  --surface: #F8F6EC;
+  --surface: #F2F0E5;
   --ink: #100F0F;
   --muted: #6F6E69;
   --line: #DAD8CE;
@@ -215,7 +215,7 @@ ol.steps { padding-left: 22px; margin: 8px 0 0; display: flex; flex-direction: c
   .tabs { top: 0; right: auto; width: 216px; border-top: 0; border-right: 1px solid var(--line); padding: calc(env(safe-area-inset-top, 0px) + 24px) 12px 24px max(12px, env(safe-area-inset-left, 0px)); }
   .tabs-in { grid-template-columns: 1fr; align-content: start; gap: 4px; max-width: none; margin: 0; }
   .tab { flex-direction: row; justify-content: flex-start; gap: 12px; font-size: 15px; padding: 10px 12px; min-height: 44px; }
-  .brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 24px; padding: 4px 12px 18px; }
+  .brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 21px; line-height: 1.15; padding: 4px 12px 18px; }
   .sheet-in { max-width: 860px; }
   .sheet-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 32px; align-items: start; }
 }
@@ -340,3 +340,9 @@ img { max-width: 100%; }
 .gate-btns { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); z-index: 40; max-width: 480px; margin: 0 auto; background: var(--surface); border: 1px solid var(--mark); color: var(--ink); border-radius: 10px; padding: 12px 14px; font-size: 15px; }
 @media (min-width: 900px) { .toast { bottom: 24px; } }
+
+.extras { margin-top: 28px; padding-top: 6px; border-top: 1px solid var(--line); }
+.ex-h { font-size: 22px; margin: 14px 0 6px; }
+.ex-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ex-row .picked-title { text-align: left; }
+.extras .pick-sel { margin-top: 12px; }

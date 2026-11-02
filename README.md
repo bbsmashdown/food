@@ -49,15 +49,27 @@ Open the address in Safari → **Share → Add to Home Screen**. The first time 
 - **Week tab**: the whole week at a glance. **Groceries tab**: whole week or one recipe, tap to check things off.
 - **‹ ›** at the top moves between weeks. **Settings** (bottom of the page) turns Breakfast, Lunch and Sides on or off.
 
+## Editing on your computer (GitHub Desktop)
+
+1. Install GitHub Desktop and sign in with your GitHub account.
+2. **File → Clone repository**, pick `food`, choose a folder on your computer, click **Clone**.
+3. Edit files in that folder with any text editor (add recipes, change `settings.txt`).
+4. Back in GitHub Desktop you will see the changed files. Type a short summary, click **Commit to main**, then **Push origin**. Cloudflare rebuilds the site in about a minute.
+
 ## Adding recipes
 
-Send me photos, links or PDFs and I will turn them into recipe files. Or copy one of the files in `recipes/`, change the text, and upload it to GitHub. Cloudflare rebuilds the site in about a minute. If a file has a mistake, the build fails and the message says which file and line; the old site stays up.
+Send me photos, links or PDFs and I will turn them into recipe files. To write one yourself, copy `templates/recipe-template.md` into the `recipes` folder, rename it (lowercase, dashes, ending in `.md`), and fill it in. The template explains every line. It is not published; only files in `recipes/` are. If a recipe file has a mistake, the build fails and the message says which file and line; the old site stays up.
 
-Aisles: produce, meat, dairy, dry, bread. Meals: dinner, breakfast, lunch, side. Look at any sample file for the exact layout.
+- **Meals:** dinner, breakfast, lunch and side can go on the weekly plan. dessert, baking, drink and other show in the Recipes tab and can be added as **Extras** on the Plan tab.
+- **Cuisine and tags:** `cuisine:` is one value (Mexican, Italian...). `tags:` is an optional comma-separated list (soup, barbecue, vegetarian). Tags become filter buttons on the Recipes tab. To get a "By cuisine" button in the planner, add a `genre:` line to `settings.txt`; it matches either a cuisine or a tag.
+- **Aisles:** produce, meat, dairy, dry, bread.
+- **Original source:** upload the photo or PDF into `attachments/`, then use `source_type: photo`, `source_label: Grandma's card`, `source_url: /attachments/card.jpg`. Use `web` or `pdf` the same way.
+- **Last made:** optional `last_made: 2026-10-20` helps the app suggest things you have not had in a while.
 
-To link the original: `source_type: photo`, `source_label: Grandma's card`, `source_url: /attachments/card.jpg` (upload the image into `attachments/`). Use `web` or `pdf` the same way.
+## Shopping
 
-Optional `last_made: 2026-10-20` tells the app when you last cooked something, so it can suggest things you have not had in a while.
+- **Groceries tab:** "Shop for the week" combines every planned recipe and every Extra for that week. "Shop for one recipe" covers one planned night.
+- **Any recipe:** open it in the Recipes tab, pick 1×, 2× or 3×, and tap **Shop for this recipe** for a one-off list.
 
 ## Good to know
 

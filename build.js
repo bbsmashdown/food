@@ -6,7 +6,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const MEALS = ['dinner', 'breakfast', 'lunch', 'side'];
+// dinner, breakfast, lunch and side can be planned. The rest only appear in the Recipes tab.
+const MEALS = ['dinner', 'breakfast', 'lunch', 'side', 'dessert', 'baking', 'drink', 'other'];
 const AISLES = ['produce', 'meat', 'dairy', 'dry', 'bread'];
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const problems = [];
@@ -85,6 +86,7 @@ function parseRecipe(file) {
     id, meal, t: data.title, c: data.cuisine,
     prep: Number(data.prep), total: Number(data.total), serves: Number(data.serves),
     lastMade: /^\d{4}-\d{2}-\d{2}$/.test(data.last_made || '') ? data.last_made : null,
+    tags: (data.tags || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean),
     src: { type: srcType, label: data.source_label || '', url: data.source_url || '' },
     ing, steps
   };
