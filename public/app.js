@@ -52,19 +52,23 @@
 
   // ---------- plan data ----------
   function ns(mode, pick) { var m = mode === undefined ? 'cook' : mode; return { mode: m, pick: pick || null, scale: 1, open: m === 'cook' && !pick, time: 'any', all: false }; }
-  function newDay() { var d = ns('', null); d.side = null; d.m = { b: ns(), l: ns() }; d.open = false; return d; }
+  function newSide() { var q = ns(); q.open = false; return q; }
+  function newDay() { var d = ns('', null); d.m = { b: ns(), l: ns(), s: newSide() }; d.open = false; return d; }
   function hydrateDay(sd) {
     var d = newDay(); if (!sd) return d;
-    d.mode = sd.mode || ''; d.pick = byId[sd.pick] ? sd.pick : null; d.scale = sd.scale || 1; d.side = byId[sd.side] ? sd.side : null; d.open = d.mode === 'cook' && !d.pick;
+    d.mode = sd.mode || ''; d.pick = byId[sd.pick] ? sd.pick : null; d.scale = sd.scale || 1; d.open = d.mode === 'cook' && !d.pick;
     ['b', 'l'].forEach(function (k) { var q = sd.m && sd.m[k]; if (q) { var s2 = ns(q.mode, byId[q.pick] ? q.pick : null); s2.scale = q.scale || 1; d.m[k] = s2; } });
+    var sq = sd.m && sd.m.s, sid = sq ? sq.pick : sd.side;
+    if (sid && byId[sid]) { d.m.s.pick = sid; d.m.s.scale = (sq && sq.scale) || d.scale || 1; }
     return d;
   }
   function saveDay(d) {
-    var o = { mode: d.mode, pick: d.pick, scale: d.scale, side: d.side, m: {} };
+    var o = { mode: d.mode, pick: d.pick, scale: d.scale, m: {} };
     ['b', 'l'].forEach(function (k) { var q = d.m[k]; o.m[k] = { mode: q.mode, pick: q.pick, scale: q.scale }; });
+    o.m.s = { pick: d.m.s.pick, scale: d.m.s.scale };
     return o;
   }
-  function isEmptyDay(d) { return d.mode === '' && !d.pick && ['b', 'l'].every(function (k) { return d.m[k].mode === 'cook' && !d.m[k].pick; }); }
+  function isEmptyDay(d) { return d.mode === '' && !d.pick && !d.m.s.pick && ['b', 'l'].every(function (k) { return d.m[k].mode === 'cook' && !d.m[k].pick; }); }
   var WEEKS = {}, weekKey = defaultWeekKey(), plan = [], checked = {}, extras = [], selDay = 0;
   function getWeek(key) { if (!WEEKS[key]) WEEKS[key] = { days: DAYS.map(function () { return newDay(); }), checked: {}, extras: [] }; return WEEKS[key]; }
   function enterWeek(key, keepSel) {
@@ -103,7 +107,7 @@
       var base = parseISO(k);
       WEEKS[k].days.forEach(function (d, i) {
         var dt = addDays(base, i); if (dt >= t0) return;
-        if (d.mode === 'cook') { note(d.pick, dt); note(d.side, dt); }
+        if (d.mode === 'cook') { note(d.pick, dt); note(d.m.s.pick, dt); }
         ['b', 'l'].forEach(function (m) { if (d.m[m].mode === 'cook') note(d.m[m].pick, dt); });
       });
     });
@@ -188,7 +192,7 @@
     for (var k = a.length - 1; k > 0; k--) { x = (x * 9301 + 49297) % 233280; var j = Math.floor(x / 233280 * (k + 1)); var t = a[k]; a[k] = a[j]; a[j] = t; }
     return a;
   }
-  var MEAL_KIND = { b: 'breakfast', l: 'lunch', d: 'dinner' };
+  var MEAL_KIND = { b: 'breakfast', l: 'lunch', d: 'dinner', s: 'side' };
   function hasStyle(r, n) { n = String(n).toLowerCase(); return String(r.c).toLowerCase() === n || (r.tags || []).indexOf(n) > -1; }
   function themeOf(i, k) { return k === 'd' ? THEMES[i] : null; }
   function sortRow(i, k) {
@@ -218,7 +222,7 @@
     return c === 'cuisine' ? (p.cuisine || 'All cuisines') + ' · longest since made' : c === 'random' ? 'Random picks' : c === 'all' ? 'All recipes' : 'Longest since made';
   }
   function suggestions(i, k) {
-    var p = S(i, k), theme = themeOf(i, k), used = pickedElsewhere(i, k);
+    var p = S(i, k), theme = themeOf(i, k), used = k === 's' ? [] : pickedElsewhere(i, k);
     var pool = R.filter(function (r) { return r.meal === MEAL_KIND[k] && used.indexOf(r.id) < 0; });
     if (p.time === 'quick') pool = pool.filter(function (r) { return r.total <= 40; });
     if (p.time === 'long') pool = pool.filter(function (r) { return r.total > 40; });
@@ -254,7 +258,7 @@
       var q = S(i, k);
       if (q.mode === 'cook' && q.pick) {
         out.push({ r: byId[q.pick], s: q.scale });
-        if (k === 'd' && meals.s && p.side && byId[p.side]) out.push({ r: byId[p.side], s: q.scale });
+        if (k === 'd' && meals.s && p.m.s.pick && byId[p.m.s.pick]) out.push({ r: byId[p.m.s.pick], s: p.m.s.scale });
       }
     });
     return out;
@@ -262,11 +266,22 @@
   function dayMinutes(i) { return dayRecipes(i).reduce(function (t, x) { return t + x.r.total; }, 0); }
   function mealChips() { return ''; }
   function sideRow(i) {
-    var p = plan[i];
-    if (!meals.s || !meals.d || p.mode !== 'cook' || !p.pick) return '';
-    var list = R.filter(function (r) { return r.meal === 'side'; });
-    return '<div class="slot"><label class="slot-l" for="side-' + i + '">Side</label><select class="pick-sel" id="side-' + i + '" data-sel="side" data-i="' + i + '"><option value="">No side</option>' +
-      list.map(function (r) { return '<option value="' + r.id + '"' + (p.side === r.id ? ' selected' : '') + '>' + r.t + ' · ' + fmtMin(r.total) + '</option>'; }).join('') + '</select>' + '</div>';
+    var d = plan[i];
+    if (!meals.s || !meals.d || d.mode !== 'cook' || !d.pick || d.open) return '';
+    var p = d.m.s, list = R.filter(function (r) { return r.meal === 'side'; });
+    var h = '<div class="side-sec"><label class="slot-l side-l" for="side-' + i + '">Side</label><select class="pick-sel" id="side-' + i + '" data-sel="side" data-i="' + i + '"><option value="">No side</option>' +
+      list.map(function (r) { return '<option value="' + r.id + '"' + (p.pick === r.id ? ' selected' : '') + '>' + r.t + ' · ' + fmtMin(r.total) + '</option>'; }).join('') + '</select>';
+    if (p.pick && byId[p.pick]) {
+      var r = byId[p.pick];
+      h += '<div class="meta"><span>Prep ' + fmtMin(r.prep) + '</span><span>Total ' + fmtMin(r.total) + '</span><span>Serves ' + (r.serves * p.scale) + '</span></div>' +
+        '<div class="row-tools">' + scaleSeg(i, 's', p) + '<button class="link-btn" data-a="view" data-id="' + r.id + '">View recipe</button></div>';
+    }
+    return h + '</div>';
+  }
+  function sideDetail(i) {
+    var d = plan[i], p = d.m.s;
+    if (!meals.s || d.mode !== 'cook' || !d.pick || d.open || !p.pick) return '';
+    return '<div class="side-detail"><div class="slot-l side-l">Side recipe</div>' + detailHtml(byId[p.pick], p.scale) + '</div>';
   }
   function modeSel(i, p, k) {
     k = k || 'd';
@@ -299,16 +314,16 @@
     var r = byId[q.pick];
     o.text = r.t; o.time = r.total; o.kind = 'recipe'; o.id = q.pick; o.r = r;
     o.sub = r.c + ' · serves ' + r.serves * q.scale;
-    if (k === 'd' && meals.s && p.side && byId[p.side]) o.side = byId[p.side];
+    if (k === 'd' && meals.s && p.m.s.pick && byId[p.m.s.pick]) o.side = byId[p.m.s.pick];
     return o;
   }
   function secHead(i, k, open) {
     var m = mealInfo(i, k);
-    return '<button class="mhead" data-a="tog" data-i="' + i + '" data-k="' + k + '" aria-expanded="' + open + '"><span class="slot-l">' + m.label + '</span><span class="mname ' + m.kind + '">' + m.text + '</span><span class="mtime">' + (m.time ? fmtMin(m.time) : '') + '</span><span class="chev" aria-hidden="true">›</span></button>';
+    return '<button class="mhead" data-a="tog" data-i="' + i + '" data-k="' + k + '" aria-expanded="' + open + '"><span class="slot-l">' + m.label + '</span><span class="mname ' + m.kind + '">' + m.text + (m.side ? ' + ' + m.side.t : '') + '</span><span class="mtime">' + (m.time ? fmtMin(m.time) : '') + '</span><span class="chev" aria-hidden="true">›</span></button>';
   }
   function lineBtn(i, k) {
     var m = mealInfo(i, k), cur = i === selDay && enabledKeys().length > 1 && openKey(plan[i]) === k;
-    return '<button class="ln" data-a="selmeal" data-i="' + i + '" data-k="' + k + '"' + (cur ? ' aria-current="true"' : '') + '><span class="lk">' + m.label + '</span><span class="lv ' + m.kind + '">' + m.text + '</span><span class="lt">' + (m.time ? fmtMin(m.time) : '') + '</span></button>';
+    return '<button class="ln" data-a="selmeal" data-i="' + i + '" data-k="' + k + '"' + (cur ? ' aria-current="true"' : '') + '><span class="lk">' + m.label + '</span><span class="lv ' + m.kind + '">' + m.text + (m.side ? ' + ' + m.side.t : '') + '</span><span class="lt">' + (m.time ? fmtMin(m.time) : '') + '</span></button>';
   }
   function scaleSeg(i, k, p) {
     return '<div class="seg" role="group" aria-label="Scale">' + [1,2,3].map(function (x) { return '<button data-a="scale" data-i="' + i + '" data-mk="' + k + '" data-s="' + x + '" aria-pressed="' + (p.scale === x) + '">' + x + '×</button>'; }).join('') + '</div>';
@@ -325,7 +340,7 @@
     if (p.mode === '') return '<p class="empty-note">Choose Cook, Leftovers or Take-out for this ' + (k === 'd' ? 'night from the list' : 'meal') + '.</p>';
     if (p.mode === 'left') return '<p class="empty-note">Leftovers. Nothing to cook.</p>';
     if (p.mode === 'out') return '<p class="empty-note">Take-out. Nothing to cook.</p>';
-    if (p.pick && !p.open) return '<div class="row-tools">' + scaleSeg(i, k, p) + backBtn(i, k) + '</div>' + (k === 'd' ? sideRow(i) : '') + detailHtml(byId[p.pick], p.scale);
+    if (p.pick && !p.open) return (k === 'd' && meals.s ? '<div class="slot-l side-l">Dinner · ' + byId[p.pick].t + '</div>' : '') + '<div class="row-tools">' + scaleSeg(i, k, p) + backBtn(i, k) + '</div>' + (k === 'd' ? sideRow(i) : '') + detailHtml(byId[p.pick], p.scale) + (k === 'd' ? sideDetail(i) : '');
     return suggestBlock(i, k, true);
   }
   function modeRow(i, k) { return '<div class="slot"><label class="slot-l" for="mode-' + (k === 'd' ? '' : k + '-') + i + '">Plan</label>' + modeSel(i, S(i, k), k) + '</div>'; }
@@ -394,9 +409,9 @@
 
   function weekBox(i, k) {
     var m = mealInfo(i, k);
-    var sub = m.kind === 'recipe' ? m.sub : m.kind === 'left' ? 'Reheat, no cooking' : m.kind === 'out' ? 'No cooking tonight' : '';
+    var sub = m.kind === 'recipe' ? '' : m.kind === 'left' ? 'Reheat, no cooking' : m.kind === 'out' ? 'No cooking tonight' : '';
     var inner = '<span class="wb-top"><span class="wb-k">' + m.label + '</span><span class="wb-t">' + (m.time ? fmtMin(m.time) : '') + '</span></span><span class="wb-n">' + m.text + '</span>' +
-      (sub ? '<span class="wb-s">' + sub + '</span>' : '') + (m.side ? '<span class="wb-side">with ' + m.side.t + ' · ' + fmtMin(m.side.total) + '</span>' : '');
+      (sub ? '<span class="wb-s">' + sub + '</span>' : '') + (m.side ? '<span class="wb-sub">with ' + m.side.t + '</span>' : '');
     var cls = 'wbox ' + m.kind;
     return m.id ? '<button class="' + cls + '" data-a="view" data-id="' + m.id + '">' + inner + '</button>' : '<div class="' + cls + '">' + inner + '</div>';
   }
@@ -557,9 +572,10 @@
     if (s.dataset.sel === 'mode') {
       var i = +s.dataset.i, mk = s.dataset.mk || 'd', p = S(i, mk);
       selDay = i; p.mode = s.value; p.open = (s.value === 'cook' && !p.pick); p.all = false;
-      if (s.value !== 'cook') { p.pick = null; p.scale = 1; if (mk === 'd') plan[i].side = null; }
+      if (s.value !== 'cook') { p.pick = null; p.scale = 1; if (mk === 'd') { plan[i].m.s.pick = null; plan[i].m.s.open = false; plan[i].m.s.scale = 1; } }
     } else if (s.dataset.sel === 'side') {
-      plan[+s.dataset.i].side = s.value || null;
+      var sp = plan[+s.dataset.i].m.s, nv2 = s.value && byId[s.value] ? s.value : null;
+      if (sp.pick !== nv2) { sp.pick = nv2; sp.scale = 1; } sp.open = false;
     } else if (s.dataset.sel === 'sort') {
       var q = S(+s.dataset.i, s.dataset.mk); q.sort = s.value; if (s.value === 'random') q.seed = (q.seed || 1) + 1;
     } else if (s.dataset.sel === 'shopday') { shop.day = +s.value; }
