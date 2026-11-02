@@ -356,3 +356,7 @@ img { max-width: 100%; }
 .side-sec { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .side-detail { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
 .side-l { min-width: 0; }
+
+.set-h { font-size: 22px; margin: 28px 0 6px; }
+.set-sel { width: auto; min-width: 190px; max-width: 60%; }
+.pantry-box { width: 100%; box-sizing: border-box; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: inherit; line-height: 1.5; }

@@ -10,6 +10,11 @@ NEW IN THIS UPDATE
 - Renamed to "Meal Planner" in the page title, breadcrumb, sidebar and home-screen name
 - New recipe: On the Mend Spiced Red Lentil-Kale Soup (with photo)
 - templates/recipe-template.md: a reference copy for writing recipes by hand (not published)
+- Sides: a dropdown of all your sides under the dinner, with 1x/2x/3x and the full recipe shown; ingredients go on the grocery list
+- Week view shows just the dish name, with the side as a subheading (no cuisine or servings)
+- Optional household logins: one site, many families, each with a separate plan (set HOUSEHOLDS in Cloudflare; see README step 4). Nothing changes until you add it.
+- Send to Reminders / Copy list / Share on the Groceries tab
+- Settings: theme nights and the pantry list are now editable per household (defaults still come from settings.txt)
 - README updated
 - Settings moved to the bottom of the sidebar on desktop (phone keeps the link at the bottom of the page)
 
@@ -23,3 +28,6 @@ public/index.html
 recipes/red-lentil-kale-soup.md
 attachments/red-lentil-kale-soup.jpg
 templates/recipe-template.md
+functions/api/plan.js
+functions/api/unlock.js
+public/favicon.ico (if not already added)

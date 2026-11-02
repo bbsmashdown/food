@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Meal Planner">
 <title>Meal Planner</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,11 +54,12 @@
 <div class="sheet" id="sheet" hidden></div>
 <div class="gate" id="gate" hidden>
   <form class="gate-card" id="gate-form">
-    <h2>Family passcode</h2>
-    <p>Enter it once on this phone or computer to make changes. Anyone with the link can view.</p>
-    <input id="gate-in" type="password" autocomplete="current-password" aria-label="Family passcode">
+    <h2 id="gate-title">Family passcode</h2>
+    <p id="gate-help">Enter it once on this phone or computer to make changes. Anyone with the link can view.</p>
+    <input id="gate-hh" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Household name" aria-label="Household name" hidden>
+    <input id="gate-in" type="password" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode">
     <p class="gate-msg" id="gate-msg" role="alert"></p>
-    <div class="gate-btns"><button type="button" class="link-btn" id="gate-cancel">Cancel</button><button class="btn" type="submit">Unlock</button></div>
+    <div class="gate-btns"><button type="button" class="link-btn" id="gate-cancel">Cancel</button><button class="btn" id="gate-go" type="submit">Unlock</button></div>
   </form>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>

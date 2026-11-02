@@ -30,9 +30,18 @@ It lives at `food.yourdomain.com`. Anyone with the link can **view**. Only peopl
 1. In Cloudflare go to **Storage & Databases → KV → Create a namespace**. Name it `food`.
 2. Open your Pages project → **Settings → Bindings → Add → KV namespace**. Variable name: `FOOD` (capital letters). Namespace: the one you just made. Save.
 
-### 4. Set the family passcode
-1. Pages project → **Settings → Variables and Secrets → Add**.
-2. Name: `PASSCODE`. Value: any word or phrase you both will remember. Choose **Secret**. Save.
+### 4. Set the logins
+Pages project → **Settings → Variables and Secrets → Add**. Choose **Secret** for both kinds below.
+
+**One family, anyone can view (simplest):** Name `PASSCODE`, value any word or phrase you both will remember. Anyone with the link can see the plan; only people with the passcode can change it.
+
+**Several households, everyone signs in:** Name `HOUSEHOLDS`, value a list in this exact format:
+
+    {"smiths": "corn-bread-42", "jones": "another passcode here"}
+
+Each name is a household name (what people type as the username) and each value is that household's passcode. Use straight quotes, put a comma between households, and no comma after the last one. Each household gets its own separate plan, and nobody can see a plan without signing in. When `HOUSEHOLDS` exists, `PASSCODE` is ignored.
+
+To add or change a household later, edit the `HOUSEHOLDS` value, save, then redeploy (step 5). Passcodes are shared by everyone in a household, so choose something other than a simple word.
 
 ### 5. Redeploy once
 Pages project → **Deployments** → on the latest one click **⋯ → Retry deployment**. Bindings only take effect on a new deploy.
@@ -41,13 +50,13 @@ Pages project → **Deployments** → on the latest one click **⋯ → Retry de
 Pages project → **Custom domains → Set up a custom domain** → type `food.yourdomain.com`. Cloudflare adds the record for you if your domain is on Cloudflare.
 
 ### 7. Put it on both phones
-Open the address in Safari → **Share → Add to Home Screen**. The first time you change something it asks for the passcode. Enter it once per device.
+Open the address in Safari → **Share → Add to Home Screen**. With a single passcode, the app asks for it the first time you change something. With households, it asks for the household name and passcode when you open it. Either way you enter it once per device.
 
 ## Everyday use
 
 - **Plan tab**: pick Cook, Leftovers or Take-out for each night. Cook nights show suggestions.
 - **Week tab**: the whole week at a glance. **Groceries tab**: whole week or one recipe, tap to check things off.
-- **‹ ›** at the top moves between weeks. **Settings** (bottom of the page) turns Breakfast, Lunch and Sides on or off.
+- **‹ ›** at the top moves between weeks. **Settings** (bottom of the sidebar on a computer, bottom of the page on a phone) turns Breakfast, Lunch and Sides on or off, and signs out when logins are on.
 
 ## Editing on your computer (GitHub Desktop)
 
@@ -55,6 +64,8 @@ Open the address in Safari → **Share → Add to Home Screen**. The first time 
 2. **File → Clone repository**, pick `food`, choose a folder on your computer, click **Clone**.
 3. Edit files in that folder with any text editor (add recipes, change `settings.txt`).
 4. Back in GitHub Desktop you will see the changed files. Type a short summary, click **Commit to main**, then **Push origin**. Cloudflare rebuilds the site in about a minute.
+
+- **Theme nights and pantry staples per household:** open **Settings**. Each day has a theme dropdown (None, or any cuisine or tag your recipes use), and the pantry list is a box you can edit. Each household's choices are saved with its login. Until a household changes them, it uses the defaults in `settings.txt`. **Use the site defaults** switches back.
 
 ## Adding recipes
 
@@ -70,6 +81,18 @@ Send me photos, links or PDFs and I will turn them into recipe files. To write o
 
 - **Groceries tab:** "Shop for the week" combines every planned recipe and every Extra for that week. "Shop for one recipe" covers one planned night.
 - **Any recipe:** open it in the Recipes tab, pick 1×, 2× or 3×, and tap **Shop for this recipe** for a one-off list.
+
+## Groceries into Apple Reminders (one-time setup)
+
+Pasting a list into Reminders makes a single reminder, so the app hands the list to a small Shortcut instead.
+
+1. Open the **Shortcuts** app on your iPhone, tap **+**.
+2. Tap **Add Action**, search **Split Text**, add it. Tap the blue "Text" and choose **Shortcut Input**. Leave the separator on **New Lines**.
+3. Add the action **Repeat with Each**. It uses the Split Text result automatically.
+4. Inside the repeat, add **Add New Reminder**. Tap the reminder text and choose the variable **Repeat Item**. Tap the list name and pick your Groceries list.
+5. Tap the shortcut name at the top and rename it exactly **Add Groceries**. Tap Done.
+
+After that, the **Send to Reminders** button on the Groceries tab adds one reminder per item. The first time, iOS asks permission to use Reminders. Items you have checked off in the app are left out.
 
 ## Good to know
 

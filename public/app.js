@@ -17,7 +17,8 @@
 
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var DATES = [];
-  var THEMES = {}, PANTRY = [], GENRES = {};
+  var THEMES = {}, PANTRY = [], GENRES = {}, DEF_THEMES = {}, DEF_PANTRY = [], prefs = { themes: null, pantry: null };
+  function applyPrefs() { THEMES = prefs.themes || DEF_THEMES; PANTRY = prefs.pantry || DEF_PANTRY; }
   var AISLES = { produce: 'Produce', meat: 'Meat & seafood', dairy: 'Dairy & eggs', dry: 'Dry & canned', bread: 'Bread & tortillas' };
   var PLURAL = { handful: 1, can: 1, clove: 1, bunch: 1, stalk: 1, head: 1, jar: 1 };
   var R = [], byId = {}, CUISINES = ['All'];
@@ -33,7 +34,7 @@
     R.sort(function (a, b) { return a.t.localeCompare(b.t); });
     byId = {}; R.forEach(function (r) { byId[r.id] = r; });
     var st = data.settings || {};
-    THEMES = st.themes || {}; PANTRY = st.pantry || [];
+    DEF_THEMES = st.themes || {}; DEF_PANTRY = (st.pantry || []).map(function (x) { return String(x).toLowerCase(); }); applyPrefs();
     GENRES = st.genres && Object.keys(st.genres).length ? st.genres : {};
     if (!Object.keys(GENRES).length) R.forEach(function (r) { GENRES[r.c] = [r.c]; });
     CUISINES = ['All'].concat(R.map(function (r) { return r.c; }).filter(function (c, i, a) { return a.indexOf(c) === i; }));
@@ -85,11 +86,12 @@
       if (w.days.every(isEmptyDay) && !Object.keys(ck).length && !w.extras.length) return;
       weeks[k] = { days: w.days.map(saveDay), checked: ck, extras: w.extras.map(function (x) { return { id: x.id, scale: x.scale }; }) };
     });
-    return { meals: meals, weeks: weeks };
+    return { meals: meals, weeks: weeks, prefs: { themes: prefs.themes, pantry: prefs.pantry } };
   }
   function applyDoc(doc, keepSel) {
     VERSION = doc.version || 0;
     meals = Object.assign({ b: false, l: false, d: true, s: false }, doc.meals || {});
+    prefs = { themes: (doc.prefs && doc.prefs.themes) || null, pantry: (doc.prefs && doc.prefs.pantry) || null }; applyPrefs();
     WEEKS = {};
     Object.keys(doc.weeks || {}).forEach(function (k) {
       var w = doc.weeks[k];
@@ -118,16 +120,27 @@
   var READY = false, MODE = 'init', VERSION = 0, saveTimer = null, saving = false, dirty = false, editSeq = 0;
   function getPass() { try { return localStorage.getItem('food-pass') || ''; } catch (e) { return ''; } }
   function setPass(p) { try { if (p) localStorage.setItem('food-pass', p); else localStorage.removeItem('food-pass'); } catch (e) {} }
+  function getHH() { try { return localStorage.getItem('food-hh') || ''; } catch (e) { return ''; } }
+  function setHH(h) { try { if (h) localStorage.setItem('food-hh', h); else localStorage.removeItem('food-hh'); } catch (e) {} }
+  var HOUSEHOLD = '', gateLogin = false;
+  function authHeaders(extra) { var h = { 'x-passcode': getPass() }; if (getHH()) h['x-household'] = getHH(); if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; }); return h; }
   function canEdit() { return MODE === 'local' || !!getPass(); }
+  function signOut() { setPass(''); setHH(''); location.reload(); }
   function setStatus(kind, text) { var el = document.getElementById('sync'); if (!el) return; el.dataset.s = kind; el.textContent = text; }
   function toast(msg) {
     var el = document.getElementById('toast'); el.textContent = msg; el.hidden = false;
     clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 7000);
   }
-  function askPass(msg) {
+  function askPass(msg, login) {
+    gateLogin = !!login;
+    document.getElementById('gate-title').textContent = login ? 'Sign in' : 'Family passcode';
+    document.getElementById('gate-help').textContent = login ? 'Enter your household name and passcode. This phone or computer will remember them.' : 'Enter it once on this phone or computer to make changes. Anyone with the link can view.';
+    document.getElementById('gate-hh').hidden = !login;
+    document.getElementById('gate-cancel').hidden = !!login;
+    document.getElementById('gate-go').textContent = login ? 'Sign in' : 'Unlock';
     document.getElementById('gate-msg').textContent = msg || '';
     document.getElementById('gate').hidden = false;
-    setTimeout(function () { document.getElementById('gate-in').focus(); }, 50);
+    setTimeout(function () { document.getElementById(login ? 'gate-hh' : 'gate-in').focus(); }, 50);
   }
   function save() { dirty = true; editSeq++; setStatus('saving', 'Saving…'); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 500); }
   function flush() {
@@ -138,17 +151,22 @@
     if (saving) { saveTimer = setTimeout(flush, 300); return; }
     saving = true;
     var seq = editSeq, body = payload(); body.baseVersion = VERSION;
-    fetch('/api/plan', { method: 'PUT', headers: { 'content-type': 'application/json', 'x-passcode': getPass() }, body: JSON.stringify(body) }).then(function (r) {
-      if (r.status === 401) { setPass(''); dirty = false; setStatus('view', 'View only'); askPass('That passcode was not accepted.'); return; }
+    fetch('/api/plan', { method: 'PUT', headers: authHeaders({ 'content-type': 'application/json' }), body: JSON.stringify(body) }).then(function (r) {
+      if (r.status === 401) { dirty = false; if (HOUSEHOLD) { signOut(); return; } setPass(''); setStatus('view', 'View only'); askPass('That passcode was not accepted.'); return; }
       if (r.status === 409) return r.json().then(function (j) { applyDoc(j.doc, true); dirty = false; setStatus('saved', 'Saved'); toast('Your partner changed the plan at the same moment. Their version is showing. Please redo your last change.'); render(); });
       if (!r.ok) throw new Error('save failed');
       return r.json().then(function (doc) { VERSION = doc.version; if (seq === editSeq) { dirty = false; setStatus('saved', 'Saved'); } });
     }).catch(function () { setStatus('error', 'Not saved, retrying…'); saveTimer = setTimeout(flush, 5000); }).then(function () { saving = false; });
   }
   function loadRemote() {
-    return fetch('/api/plan', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('no storage'); return r.json(); }).then(function (doc) {
-      MODE = 'remote'; applyDoc(doc);
-      if (getPass()) setStatus('saved', 'Saved'); else setStatus('view', 'View only');
+    return fetch('/api/plan', { cache: 'no-store', headers: authHeaders() }).then(function (r) {
+      if (r.status === 401) return r.json().catch(function () { return {}; }).then(function (j) { if (j.login) return 'login'; throw new Error('no storage'); });
+      if (!r.ok) throw new Error('no storage');
+      return r.json();
+    }).then(function (doc) {
+      if (doc === 'login') { MODE = 'login'; setPass(''); setStatus('view', 'Signed out'); return; }
+      MODE = 'remote'; HOUSEHOLD = doc.household || ''; applyDoc(doc);
+      if (getPass() || HOUSEHOLD) setStatus('saved', 'Saved'); else setStatus('view', 'View only');
     }).catch(function () {
       MODE = 'local'; var d = null;
       try { d = JSON.parse(localStorage.getItem('food-local')); } catch (e) {}
@@ -157,11 +175,11 @@
   }
   function poll() {
     if (MODE !== 'remote' || document.hidden || saving || dirty) return;
-    fetch('/api/plan', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (doc) {
+    fetch('/api/plan', { cache: 'no-store', headers: authHeaders() }).then(function (r) { if (r.status === 401 && HOUSEHOLD) { signOut(); return null; } return r.ok ? r.json() : null; }).then(function (doc) {
       if (doc && doc.version > VERSION) { applyDoc(doc, true); render(); }
     }).catch(function () {});
   }
-  var MUT = ['pick', 'change', 'keep', 'scale', 'check', 'meal', 'xscale', 'xrm'];
+  var MUT = ['pick', 'change', 'keep', 'scale', 'check', 'meal', 'xscale', 'xrm', 'resetthemes', 'resetpantry'];
 
   var SHORTCUT = 'Add Groceries', APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
   var view = 'plan', sheet = null, rFilter = 'All', rMeal = 'all', rTag = '', rQuery = '';
@@ -512,10 +530,31 @@
     el.innerHTML = h; el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden';
   }
 
+  function styleOptions() {
+    var out = [], seen = {};
+    R.forEach(function (r) { [r.c].concat(r.tags || []).forEach(function (n) { var k = String(n).toLowerCase(); if (n && !seen[k]) { seen[k] = 1; out.push(n); } }); });
+    return out.sort(function (a, b) { return String(a).localeCompare(String(b)); });
+  }
+  function themesHtml() {
+    var opts = styleOptions(), full = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    var rows = full.map(function (d, i) {
+      var cur = THEMES[i] || '', has = !cur || opts.some(function (o) { return o.toLowerCase() === String(cur).toLowerCase(); });
+      return '<div class="set-row"><label class="set-t" for="theme-' + i + '">' + d + '</label><select class="pick-sel set-sel" id="theme-' + i + '" data-sel="theme" data-d="' + i + '"><option value="">No theme</option>' +
+        (has ? '' : '<option value="' + esc(cur) + '" selected>' + esc(cur) + '</option>') +
+        opts.map(function (o) { return '<option value="' + esc(o) + '"' + (String(cur).toLowerCase() === o.toLowerCase() ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>';
+    }).join('');
+    return '<h2 class="set-h">Theme nights</h2><p class="intro" style="margin:0 0 4px">Pick a cuisine or tag for a night and it is suggested first when you plan that night.' + (prefs.themes ? ' <button class="link-btn" data-a="resetthemes" style="display:inline;min-height:0;padding:0">Use the site defaults</button>' : '') + '</p><div class="setlist">' + rows + '</div>';
+  }
+  function pantryHtml() {
+    return '<h2 class="set-h">Pantry staples</h2><p class="intro" style="margin:0 0 8px">Left off your grocery lists. Type ingredient names as they appear in the recipes, separated by commas.' + (prefs.pantry ? ' <button class="link-btn" data-a="resetpantry" style="display:inline;min-height:0;padding:0">Use the site defaults</button>' : '') + '</p>' +
+      '<textarea class="pantry-box" id="pantry-in" data-sel="pantry" rows="4" aria-label="Pantry staples">' + esc(PANTRY.join(', ')) + '</textarea>';
+  }
   function renderSettings() {
     var rows = [['d', 'Dinner', 'Plan a recipe, leftovers or take-out for each night.'], ['b', 'Breakfast', 'Add a breakfast to each day.'], ['l', 'Lunch', 'Add a lunch to each day.'], ['s', 'Sides', 'Pick an optional side on dinner nights.']];
     var access;
-    if (MODE === 'remote') {
+    if (MODE === 'remote' && HOUSEHOLD) {
+      access = '<div class="set-row"><div><div class="set-t">Signed in</div><div class="set-s">Household: ' + esc(HOUSEHOLD) + '. Everyone in this household sees the same plan.</div></div><button class="link-btn" data-a="logout">Sign out</button></div>';
+    } else if (MODE === 'remote') {
       access = getPass()
         ? '<div class="set-row"><div><div class="set-t">Changes</div><div class="set-s">Unlocked on this device. Your partner sees every change.</div></div><button class="link-btn" data-a="lock">Lock</button></div>'
         : '<div class="set-row"><div><div class="set-t">Changes</div><div class="set-s">View only on this device. Enter the family passcode to make changes.</div></div><button class="link-btn" data-a="unlock">Unlock</button></div>';
@@ -524,7 +563,7 @@
     }
     return '<p class="intro">Choose which meals to plan. Turning one off hides it. Anything you already picked is kept.</p><div class="setlist">' + rows.map(function (r) {
       return '<div class="set-row"><div><div class="set-t">' + r[1] + '</div><div class="set-s">' + r[2] + '</div></div><button class="sw" role="switch" aria-checked="' + meals[r[0]] + '" aria-label="' + r[1] + '" data-a="meal" data-k="' + r[0] + '"></button></div>';
-    }).join('') + access + '<div class="set-row"><div><div class="set-t">Pantry staples</div><div class="set-s">Left off grocery lists: ' + PANTRY.join(', ') + '. Change them in settings.txt.</div></div></div></div>' +
+    }).join('') + access + '</div>' + themesHtml() + pantryHtml() +
       '<div style="padding-top:12px"><button class="link-btn" data-a="tab" data-v="plan">← Back to plan</button></div>';
   }
   function render() {
@@ -552,6 +591,7 @@
     if (MUT.indexOf(a) > -1 && !local && !canEdit()) { askPass(); return; }
     if (a === 'tab') { view = b.dataset.v; try { history.replaceState(null, '', '#' + view); } catch (err) {} window.scrollTo(0, 0); }
     else if (a === 'wk') { var d = +b.dataset.d; enterWeek(d === 0 ? defaultWeekKey() : isoOf(addDays(parseISO(weekKey), 7 * d))); }
+    else if (a === 'logout') { signOut(); return; }
     else if (a === 'lock') { setPass(''); setStatus('view', 'View only'); }
     else if (a === 'unlock') { askPass(); return; }
     else if (a === 'settings') { view = 'settings'; window.scrollTo(0, 0); }
@@ -589,6 +629,8 @@
       try { navigator.clipboard.writeText(txt).then(done, manual); } catch (err) { manual(); }
       return;
     }
+    else if (a === 'resetthemes') { prefs.themes = null; applyPrefs(); }
+    else if (a === 'resetpantry') { prefs.pantry = null; applyPrefs(); }
     else if (a === 'xscale') { extras[+b.dataset.n].scale = +b.dataset.s; }
     else if (a === 'xrm') { extras.splice(+b.dataset.n, 1); }
     else if (a === 'shopthis') { shop = { mode: 'any', day: shop.day, rid: sheet.id, scale: sheet.scale }; anyChecked = {}; sheet = null; renderSheet(); view = 'shop'; window.scrollTo(0, 0); }
@@ -601,11 +643,18 @@
   });
   document.addEventListener('change', function (e) {
     var s = e.target.closest('[data-sel]'); if (!s) return;
-    if ((s.dataset.sel === 'mode' || s.dataset.sel === 'side' || s.dataset.sel === 'xadd') && !canEdit()) { askPass(); render(); return; }
+    if ((s.dataset.sel === 'mode' || s.dataset.sel === 'side' || s.dataset.sel === 'xadd' || s.dataset.sel === 'theme' || s.dataset.sel === 'pantry') && !canEdit()) { askPass(); render(); return; }
     if (s.dataset.sel === 'mode') {
       var i = +s.dataset.i, mk = s.dataset.mk || 'd', p = S(i, mk);
       selDay = i; p.mode = s.value; p.open = (s.value === 'cook' && !p.pick); p.all = false;
       if (s.value !== 'cook') { p.pick = null; p.scale = 1; if (mk === 'd') { plan[i].m.s.pick = null; plan[i].m.s.open = false; plan[i].m.s.scale = 1; } }
+    } else if (s.dataset.sel === 'theme') {
+      var t2 = {}; Object.keys(THEMES).forEach(function (k) { t2[k] = THEMES[k]; });
+      if (s.value) t2[s.dataset.d] = s.value; else delete t2[s.dataset.d];
+      prefs.themes = t2; applyPrefs();
+    } else if (s.dataset.sel === 'pantry') {
+      var seen = {}, list = s.value.split(/[,\n]/).map(function (x) { return x.trim().toLowerCase(); }).filter(function (x) { if (!x || seen[x]) return false; seen[x] = 1; return true; });
+      prefs.pantry = list; applyPrefs();
     } else if (s.dataset.sel === 'side') {
       var sp = plan[+s.dataset.i].m.s, nv2 = s.value && byId[s.value] ? s.value : null;
       if (sp.pick !== nv2) { sp.pick = nv2; sp.scale = 1; } sp.open = false;
@@ -613,7 +662,7 @@
       var q = S(+s.dataset.i, s.dataset.mk); q.sort = s.value; if (s.value === 'random') q.seed = (q.seed || 1) + 1;
     } else if (s.dataset.sel === 'shopday') { shop.day = +s.value; }
     else if (s.dataset.sel === 'xadd') { if (s.value && byId[s.value]) extras.push({ id: s.value, scale: 1 }); }
-    if (['mode', 'side', 'xadd'].indexOf(s.dataset.sel) > -1) save();
+    if (['mode', 'side', 'xadd', 'theme', 'pantry'].indexOf(s.dataset.sel) > -1) save();
     render();
   });
   if (mq.addEventListener) mq.addEventListener('change', render);
@@ -626,12 +675,18 @@
   document.getElementById('gate-cancel').addEventListener('click', function () { document.getElementById('gate').hidden = true; });
   document.getElementById('gate-form').addEventListener('submit', function (e) {
     e.preventDefault();
-    var val = document.getElementById('gate-in').value, msg = document.getElementById('gate-msg');
+    var val = document.getElementById('gate-in').value, hh = document.getElementById('gate-hh').value.trim(), msg = document.getElementById('gate-msg');
+    if (gateLogin && !hh) { msg.textContent = 'Type your household name.'; return; }
     if (!val) { msg.textContent = 'Type the passcode.'; return; }
-    fetch('/api/unlock', { method: 'POST', headers: { 'x-passcode': val } }).then(function (r) {
-      if (r.ok) { setPass(val); document.getElementById('gate-in').value = ''; document.getElementById('gate').hidden = true; setStatus('saved', 'Saved'); render(); }
-      else if (r.status === 501) msg.textContent = 'No passcode has been set up yet. See step 5 of the setup guide.';
-      else msg.textContent = 'That passcode did not work.';
+    var hd = { 'x-passcode': val }; if (gateLogin) hd['x-household'] = hh;
+    fetch('/api/unlock', { method: 'POST', headers: hd }).then(function (r) {
+      if (r.ok) {
+        setPass(val); document.getElementById('gate-in').value = '';
+        if (gateLogin) { setHH(hh); location.reload(); return; }
+        document.getElementById('gate').hidden = true; setStatus('saved', 'Saved'); render();
+      }
+      else if (r.status === 501) msg.textContent = 'No passcode has been set up yet. See the setup guide.';
+      else msg.textContent = gateLogin ? 'That household name or passcode did not work.' : 'That passcode did not work.';
     }).catch(function () { msg.textContent = 'Could not reach the server. Try again.'; });
   });
   var hv = location.hash.slice(1); if (TITLES[hv]) view = hv;
@@ -639,6 +694,7 @@
   fetch('data.json', { cache: 'no-cache' }).then(function (r) { return r.json(); }).then(function (data) {
     loadData(data); return loadRemote();
   }).then(function () {
+    if (MODE === 'login') { document.getElementById('main').innerHTML = '<p class="intro">Sign in to see your plan.</p>'; askPass('', true); return; }
     READY = true; render(); setInterval(poll, 20000); document.addEventListener('visibilitychange', poll);
   }).catch(function () {
     document.getElementById('main').innerHTML = '<p class="intro">Could not load the recipes. Refresh to try again.</p>';
