@@ -482,7 +482,7 @@
       h += '</ul></section>';
     });
     h += '</div>';
-    h += '<div class="row-tools" style="margin-top:18px">' + (APPLE ? '<button class="btn" data-a="reminders">Send to Reminders</button>' : '') + '<button class="' + (APPLE ? 'link-btn' : 'btn') + '" data-a="copylist">Copy list</button>' + (navigator.share ? '<button class="link-btn" data-a="sharelist">Share</button>' : '') + '</div>';
+    h += '<div class="row-tools" style="margin-top:18px;justify-content:flex-start;gap:6px 20px;flex-wrap:wrap">' + (APPLE ? '<button class="btn" data-a="reminders">Send to Reminders</button>' : '') + '<button class="' + (APPLE ? 'link-btn' : 'btn') + '" data-a="copylist">Copy list</button>' + (navigator.share ? '<button class="link-btn" data-a="sharelist">Share</button>' : '') + '</div>';
     h += '<details class="pantry"><summary>' + data.hidden.length + ' pantry staples hidden</summary><p>' + data.hidden.join(', ') + '. Change this list in the settings.txt file.</p></details>';
     return h;
   }
