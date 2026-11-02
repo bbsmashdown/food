@@ -443,6 +443,19 @@
   function weekItems() { var all = []; plan.forEach(function (p, i) { all = all.concat(dayRecipes(i)); }); extras.forEach(function (x) { all.push({ r: byId[x.id], s: x.scale }); }); return collect(all); }
   function oneItems(i) { return collect(dayRecipes(i, true)); }
 
+  function shopData() {
+    if (shop.mode === 'any' && byId[shop.rid]) return collect([{ r: byId[shop.rid], s: shop.scale }]);
+    return shop.mode === 'one' ? oneItems(shop.day) : weekItems();
+  }
+  function shopText() {
+    var ck = shop.mode === 'any' ? anyChecked : checked, out = [];
+    Object.keys(AISLES).forEach(function (a) {
+      shopData().items.filter(function (x) { return x.a === a && !ck[x.key]; }).forEach(function (x) {
+        out.push((fmtQty(x.q) + unitLabel(x.unit, x.q) + ' ' + x.name).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim());
+      });
+    });
+    return out.join('\n');
+  }
   function renderShop() {
     if (shop.mode === 'any' && !byId[shop.rid]) shop.mode = 'week';
     var planned = []; plan.forEach(function (p, i) { if (meals.d && p.mode === 'cook' && p.pick) planned.push(i); });
@@ -450,7 +463,7 @@
     if (!planned.length && shop.mode !== 'any') shop.mode = 'week';
     if (planned.length && planned.indexOf(shop.day) < 0) shop.day = planned[0];
     var any = shop.mode === 'any', ck = any ? anyChecked : checked;
-    var data = any ? collect([{ r: byId[shop.rid], s: shop.scale }]) : shop.mode === 'week' ? weekItems() : oneItems(shop.day);
+    var data = shopData();
     var h = any ? '<div class="shop-ctl"><div class="set-row" style="border:0;padding:0"><div><div class="set-t">' + byId[shop.rid].t + (shop.scale > 1 ? ' (' + shop.scale + '×)' : '') + '</div><div class="set-s">One-off list. Checks here are not saved to the week.</div></div><button class="link-btn" data-a="smode" data-m="week">Back to week list</button></div></div>' : '<div class="shop-ctl"><div class="seg wide" role="group" aria-label="List type"><button data-a="smode" data-m="week" aria-pressed="' + (shop.mode === 'week') + '">Shop for the week</button><button data-a="smode" data-m="one" aria-pressed="' + (shop.mode === 'one') + '">Shop for one recipe</button></div>';
     if (shop.mode === 'one') {
       h += '<select class="pick-sel" id="shop-day" data-sel="shopday" aria-label="Recipe">' + planned.map(function (i) { return '<option value="' + i + '"' + (i === shop.day ? ' selected' : '') + '>' + DAYS[i] + ': ' + byId[plan[i].pick].t + (plan[i].scale > 1 ? ' (' + plan[i].scale + '×)' : '') + '</option>'; }).join('') + '</select>';
@@ -468,6 +481,7 @@
       h += '</ul></section>';
     });
     h += '</div>';
+    h += '<div class="row-tools" style="margin-top:18px"><button class="btn" data-a="copylist">Copy list</button>' + (navigator.share ? '<button class="link-btn" data-a="sharelist">Share</button>' : '') + '</div>';
     h += '<details class="pantry"><summary>' + data.hidden.length + ' pantry staples hidden</summary><p>' + data.hidden.join(', ') + '. Change this list in the settings.txt file.</p></details>';
     return h;
   }
@@ -556,6 +570,18 @@
     else if (a === 'sscale') { sheet.scale = +b.dataset.s; renderSheet(); return; }
     else if (a === 'smode') { shop.mode = b.dataset.m; }
     else if (a === 'check') { var tgt = local ? anyChecked : checked; tgt[b.dataset.k] = !tgt[b.dataset.k]; }
+    else if (a === 'copylist' || a === 'sharelist') {
+      var txt = shopText(), n = txt ? txt.split('\n').length : 0;
+      if (!n) { toast('Nothing left to copy. Everything is checked off.'); return; }
+      if (a === 'sharelist') { try { navigator.share({ title: 'Groceries', text: txt }); } catch (err) {} return; }
+      var done = function () { toast('Copied ' + n + ' item' + (n === 1 ? '' : 's') + '. Paste into Reminders or Notes.'); };
+      var manual = function () {
+        var ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch (err2) { toast('Could not copy. Use Share instead.'); } document.body.removeChild(ta);
+      };
+      try { navigator.clipboard.writeText(txt).then(done, manual); } catch (err) { manual(); }
+      return;
+    }
     else if (a === 'xscale') { extras[+b.dataset.n].scale = +b.dataset.s; }
     else if (a === 'xrm') { extras.splice(+b.dataset.n, 1); }
     else if (a === 'shopthis') { shop = { mode: 'any', day: shop.day, rid: sheet.id, scale: sheet.scale }; anyChecked = {}; sheet = null; renderSheet(); view = 'shop'; window.scrollTo(0, 0); }
